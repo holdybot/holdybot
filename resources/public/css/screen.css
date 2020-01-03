@@ -1,0 +1,205 @@
+html,
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #f5f5f5;
+}
+
+@font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    src: url(/assets/material-icons/iconfont/MaterialIcons-Regular.eot); /* For IE6-8 */
+    src: local('Material Icons'),
+    local('MaterialIcons-Regular'),
+    url(/assets/material-icons/iconfont/MaterialIcons-Regular.woff2) format('woff2'),
+    url(/assets/material-icons/iconfont/MaterialIcons-Regular.woff) format('woff'),
+    url(/assets/material-icons/iconfont/MaterialIcons-Regular.ttf) format('truetype');
+}
+
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px; /* Preferred icon size */
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+    /* Support for all WebKit browsers. */
+    -webkit-font-smoothing: antialiased;
+    /* Support for Safari and Chrome. */
+    text-rendering: optimizeLegibility;
+    /* Support for Firefox. */
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.activeday {
+    background-color: hsl(141, 71%, 48%) !important;
+    color: #4A4A4A !important;
+}
+.activeday:hover {
+    background-color: #22c65b !important;
+}
+
+.inactiveday {
+    background-color: #D2B48C !important;
+    color: #4A4A4A !important;
+}
+.inactiveday:hover {
+    background-color: #ceb085 !important;
+}
+
+.blockedday {
+    background-color: hsl(1, 100%, 83%) !important;
+    color: #4A4A4A !important;
+    cursor: not-allowed !important;
+}
+.blockedday:hover {
+    background-color: hsl(1, 94%, 82%) !important;
+}
+
+.outday {
+    background-color: hsl(0, 0%, 84%) !important;
+    color: #4A4A4A !important;
+}
+.outday:hover {
+    background-color: hsl(0, 0%, 82%) !important;
+}
+
+.pendingday {
+    background-color: hsl(48, 100%, 67%) !important;
+    color: #4A4A4A !important;
+}
+.pendingday:hover {
+    background-color: #fcd751 !important;
+}
+
+.has-background-dangerous {
+    background-color: hsl(1, 100%, 83%) !important;
+}
+
+.has-background-inactive {
+    background-color: #D2B48C !important;
+}
+
+.workday {
+    background-color: #209cee;
+    color: #fff;
+    border-radius: 4px;
+    border-bottom: 0.05rem solid #FAFAFA;
+    padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+    position: relative;
+    cursor: pointer;
+}
+.workday:hover {
+    background-color: #1496ed;
+}
+
+.weekend {
+    background-color: #209cee;
+    color: #fff;
+    border-radius: 4px;
+    border-bottom: 0.05rem solid #FAFAFA;
+    padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+    position: relative;
+    cursor: pointer;
+}
+.weekend:hover {
+    background-color: #1496ed;
+}
+
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome and Opera */
+}
+
+.calendar-menu {
+    background-color: #f5f5f5;
+    padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+    position: relative;
+    margin-bottom: 0 !important;
+}
+
+.column  {
+    border-left: 0.5px solid #f5f5f5;
+    border-right: 0.5px solid #f5f5f5;
+}
+
+.user-div {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    border-radius: 4px;
+    border-bottom: 0.05rem solid #f5f5f5;
+}
+
+.admin-button {
+    padding:   0;
+    height:    100%;
+    font-size: 0.85rem;
+}
+
+.now-old {
+    cursor: not-allowed !important;
+}
+
+.now-current {
+    border-left: hsl(0, 0%, 49%) solid 0.5rem;
+    border-right: hsl(0, 0%, 49%) solid 0.5rem;
+}
+
+.material-icons.md-18 { font-size: 18px; }
+.material-icons.md-24 { font-size: 24px; }
+.material-icons.md-36 { font-size: 36px; }
+.material-icons.md-48 { font-size: 48px; }
+
+.lds-ring {
+    display: inline-block;
+    position: relative;
+    width: 52px;
+    height: 52px;
+}
+.lds-ring div {
+    box-sizing: border-box;
+    display: block;
+    position: absolute;
+    width: 39px;
+    height: 39px;
+    margin: 6px;
+    border: 6px solid #fff;
+    border-radius: 50%;
+    animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    border-color: #fff transparent transparent transparent;
+}
+.lds-ring div:nth-child(1) {
+    animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+    animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+    animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.ct-series-a .ct-line, .ct-series-a .ct-point {
+    stroke: #000000 !important;
+}
+
+.ct-series-b .ct-line, .ct-series-b .ct-point {
+    stroke: #4aa4b6 !important;
+}

@@ -1,0 +1,1 @@
+CREATE INDEX email_token_created_idx ON email_token USING btree (created);

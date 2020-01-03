@@ -1,0 +1,15 @@
+CREATE TABLE parking
+(id bigserial not null primary key,
+ tenant_id bigint not null REFERENCES tenant(id) ON DELETE CASCADE,
+ parking_day date not null,
+ parking_zone varchar(255) not null,
+ parking_name varchar(255) not null,
+ email varchar(255),
+ points int,
+ on_behalf_of boolean,
+ status varchar(255) not null,
+ user_name varchar(255),
+ slot_name varchar(255),
+ parking_type varchar(255),
+ CONSTRAINT tenant_zone_name_day_email_uk UNIQUE (tenant_id, parking_zone, parking_name, parking_day, email),
+ CONSTRAINT tenant_zone_name_day_slotname_uk UNIQUE (tenant_id, parking_zone, parking_name, parking_day, slot_name));
