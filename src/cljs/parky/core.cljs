@@ -1,5 +1,7 @@
 (ns parky.core
   (:require
+    [goog.string :as gstring]
+    [goog.string.format]
     [reagent.core :as r]
     [goog.events :as events]
     [goog.history.EventType :as HistoryEventType]
@@ -29,7 +31,8 @@
                           :show-confirm nil
                           :types nil}))
 (defonce conf (r/atom {}))
-(defonce score (r/atom {:data nil}))
+(defonce score (r/atom {:data nil
+                        :days-look-back 30}))
 (defonce analytics (r/atom {:data nil}))
 (defonce settings (r/atom {:timezones []
                            :settings []}))
@@ -55,6 +58,12 @@
 
 (defn is-after-bang-hour? [date]
   (is-fn-bang-hour? date t/after?))
+
+(defn- filter-days [disabled-days]
+  (into #{} (remove nil? (map-indexed #(when %2 (inc %1)) (or disabled-days (vec (repeat 7 false)))))))
+
+(defn- jump-to-day [from days direction-fn filter-fn]
+  (last (take days (remove nil? (remove #(filter-fn %) (iterate #(direction-fn % (t/days 1)) (direction-fn from (t/days 1))))))))
 
 (defn error-handler [response]
   (if (#{401} (:status response))
@@ -218,9 +227,9 @@
   (when @current-fetch-request
     (.abort @current-fetch-request))
   (show-spinner)
-  (reset! current-fetch-request (GET (str "/score/" parking-zone "/" date) {:handler #(swap! score assoc :data %)
-                                                                            :error-handler error-handler
-                                                                            :finally hide-spinner})))
+  (reset! current-fetch-request (GET (str "/score/" parking-zone "/" date "/" (or (:days-look-back @score) 30)) {:handler #(swap! score assoc :data %)
+                                                                                                                 :error-handler error-handler
+                                                                                                                 :finally hide-spinner})))
 
 (defn create-new! [name email token]
   (show-spinner)
@@ -303,13 +312,14 @@
       (fetch-types! parking-zone parking-name dispatch)
       (dispatch))))
 
-(defn nav-link [uri title page]
+(defn nav-link [expanded? uri title page]
   [:a.navbar-item
    {:href   uri
-     :class (when (= page (:page @session)) "is-active")}
+    :class (when (= page (:page @session)) "is-active")
+    :on-click #(swap! expanded? not)}
    title])
 
-(defn nav-calendar-dropdown [pages]
+(defn nav-calendar-dropdown [expanded? pages]
   (when js/user
     (let [is-active? (and (= (:page @session) :calendar) (:zone @session) (:parking @session))]
       [:div.navbar-item.has-dropdown.is-hoverable
@@ -322,10 +332,11 @@
                                            :on-click #(do
                                                         (swap! session assoc :types nil)
                                                         (swap! session assoc :show-admin false)
-                                                        (fetch-current-days! zone parking (:current-date @session) (:show-days-count @session)))}
+                                                        (fetch-current-days! zone parking (:current-date @session) (:show-days-count @session))
+                                                        (swap! expanded? not))}
                                           zone " - " parking]) pages))]])))
 
-(defn nav-analytics-dropdown [pages]
+(defn nav-analytics-dropdown [expanded? pages]
   (when js/user
     (let [is-active? (and (= (:page @session) :analytics) (:zone @session) (:parking @session))]
       [:div.navbar-item.has-dropdown.is-hoverable
@@ -338,10 +349,11 @@
                                            :on-click #(do
                                                         (swap! session assoc :types nil)
                                                         (swap! session assoc :show-admin false)
-                                                        (fetch-analytics! zone parking (or (:current-date @analytics) (t/first-day-of-the-month- (t/now)))))}
+                                                        (fetch-analytics! zone parking (or (:current-date @analytics) (t/first-day-of-the-month- (t/now))))
+                                                        (swap! expanded? not))}
                                           zone " - " parking]) pages))]])))
 
-(defn nav-score-dropdown [zones]
+(defn nav-score-dropdown [expanded? zones]
   (when js/user
     (let [is-active? (and (= (:page @session) :score) (:zone @score))]
       [:div.navbar-item.has-dropdown.is-hoverable
@@ -353,18 +365,19 @@
                                    :class (when (and is-active? (= zone (:zone @score)) "is-active"))
                                    :on-click #(do
                                                 (swap! score assoc :data nil)
-                                                (fetch-score! zone (f/unparse-local-date lt/iso-local-date (t/today))))}
+                                                (fetch-score! zone (f/unparse-local-date lt/iso-local-date (t/today)))
+                                                (swap! expanded? not))}
                                   zone]) zones))]])))
 
-(defn is-parky? [] ;; is dev or staging?
-  (or (= "localhost" (.(. js/document -location) -hostname)) (.endsWith (.(. js/document -location) -hostname) "staging.com")))
+(defn is-parky? []
+  (or (= "localhost" (.(. js/document -location) -hostname)) (.endsWith (.(. js/document -location) -hostname) "parkybot.com")))
 
 (defn navbar []
   (r/with-let [expanded? (r/atom false)]
     [:nav.navbar.is-info>div.container
      [:div.navbar-brand
-      [:a.navbar-item.has-background-warning.has-text-black {:href (if (is-parky?) "https://staging.com" "https://production.com") :style {:font-weight :bold
-                                                                                                                                           :padding "0.5rem"}} (if (is-parky?) "StagingBot" "HoldyBot")]
+      [:a.navbar-item.has-background-warning.has-text-black {:href "/" :style {:font-weight :bold
+                                                                               :padding "0.5rem"}} js/appName]
       (when (and (= :calendar (:page @session)) (or (:is-admin @conf) (contains? (get-in @conf [:is-admin-in (:zone @session)]) (:parking @session))))
          [:a.navbar-item
            [:span.button {:class    (if (:show-admin @session) :is-warning :is-info)
@@ -387,13 +400,13 @@
      [:div#nav-menu.navbar-menu
       {:class (when @expanded? :is-active)}
       [:div.navbar-end
-       (when (not= :new (:page @session)) [nav-link "#/" "Home" :home])
-       [nav-calendar-dropdown (:zones @conf)]
-       [nav-score-dropdown (distinct (map first (:zones @conf)))]
+       (when (not= :new (:page @session)) [nav-link expanded? "#/" "Home" :home])
+       [nav-calendar-dropdown expanded? (:zones @conf)]
+       [nav-score-dropdown expanded? (distinct (map first (:zones @conf)))]
        (when (goog.object/get js/user "is-admin")
-         [nav-analytics-dropdown (:zones @conf)])
+         [nav-analytics-dropdown expanded? (:zones @conf)])
        (when (goog.object/get js/user "is-admin")
-         [nav-link "#/settings" "Settings" :settings])]]]))
+         [nav-link expanded? "#/settings" "Settings" :settings])]]]))
 
 
 (defn rules-page []
@@ -401,9 +414,9 @@
    [:div.container>div.notification.has-background-white
     [:h2.subtitle "Rules"]
     [:ul
-     [:li "Holdy decides who will park their butt every day at " (:bang-hour @conf) ":" (:bang-minute @conf) " pm local time."]
+     [:li js/appName " decides who will park their butt every day at " (quot (:bang-seconds-utc @conf) 3600) ":" (gstring/format "%02d" (quot (mod (:bang-seconds-utc @conf) 3600) 60)) " GMT/UTC."]
      [:li "You can apply for space before that time by clicking a date cell in the calendar. The date cell then turns yellow."]
-     [:li "Holdy assigns the parking space to a person who got space assigned the least in the last month (i.e. whoever has the smallest number of points). For that person the date cell turns green."
+     [:li js/appName " assigns the parking space to a person who got space assigned the least in the last month (i.e. whoever has the smallest number of points). For that person the date cell turns green."
       [:ul
        [:li "Every time you get a space, you get 5 points."]
        [:li "In addition, if there is a “competition”, you get 2 extra points. Competition means that number of interested users is bigger then number of available spaces."]
@@ -417,14 +430,14 @@
    [:h2.subtitle "Privacy"]
    [:div.container>div.notification.has-background-white
     [:ul
-     [:li "Holdy stores your email and your name in a local database."]]]])
+     [:li js/appName " stores your email and your name in a local database."]]]])
 
 (defn terms-page []
   [:section.section>div.container>div.content
    [:h2.subtitle "Terms"]
    [:div.container>div.notification.has-background-white
     [:ul
-     [:li "By using Holdy you are giving us an option for your soul."]]]])
+     [:li "By using " js/appName " you are giving us an option for your soul."]]]])
 
 (defn- disabled-days-on-change [day zone-id]
   (fn [e]
@@ -456,7 +469,7 @@
                            [:option {:key z :value z} offset " " z])) (:timezones @settings))]]
     [:h2.subtitle "Bang-hour"]
     [:div.select [:select {:on-change #(swap! settings assoc-in [:settings :bang-hour] (-> % .-target .-value))
-                           :value (get-in @settings [:settings :bang-hour] 18)}
+                           :value (get-in @settings [:settings :bang-hour] 16)}
                   (map (fn [i] [:option {:key i} i]) (range 0 24))]]
     [:div.select [:select {:on-change #(swap! settings assoc-in [:settings :bang-minute] (-> % .-target .-value))
                            :value (get-in @settings [:settings :bang-minute] 0)}
@@ -510,6 +523,11 @@
                                                             :style {:margin-right "1rem"}} [:input {:on-change (disabled-days-on-change day idx)
                                                                                                     :type :checkbox
                                                                                                     :checked (nth (get-in @settings [:settings :zones idx :disabled-days] (vec (repeat 7 false))) day)}] day-name]))]
+                                [:div.field [:label.label "Look back days"]
+                                 [:input.input {:placeholder "30"
+                                                :maxLength 3
+                                                :on-change #(swap! settings assoc-in [:settings :zones idx :days-look-back] (empty-to-nil (-> % .-target .-value)))
+                                                :value (:days-look-back zone)}]]
                                 [:div.field [:label.label "Slots"]
                                  [:div.columns
                                   [:div.column.is-one-fourth
@@ -544,8 +562,12 @@
                                [:br]]) (get-in @settings [:settings :zones])))]])
 
 (defn change-date [op-fn cnt]
-  (let [date (op-fn (:current-date @session)
-                    (t/days cnt))]
+  (let [date (jump-to-day
+               (:current-date @session)
+               cnt
+               op-fn
+               #((filter-days (get-in @conf [:disabled-days (:zone @session) (:parking @session)])) (t/day-of-week %)))]
+
     (swap! session assoc :current-date date)
     (fetch-current-days! (:zone @session) (:parking @session) date (:show-days-count @session))))
 
@@ -851,7 +873,7 @@
                                                        [:i.material-icons.md-18 "supervised_user_circle"]])
                            (when (and (not= now-status :now-old) (:show-admin @session) (#{"pending" "inactive"} (:status data)))
                              [:button.button.is-success {:class [:admin-button]
-                                                         :on-click (fn [] (confirm "Auto assign space" "Do you really want to let Holdy auto assign a space?" #(admin-activate! parking-zone parking-name formatted-date (:user_name data) (:email data) nil)))} "Do a favor"])
+                                                         :on-click (fn [] (confirm "Auto assign space" (str "Do you really want to let " js/appName " auto assign a space?") #(admin-activate! parking-zone parking-name formatted-date (:user_name data) (:email data) nil)))} "Do a favor"])
                            (when (and (not= now-status :now-old) (:show-admin @session) (#{"out"} (:status data)))
                              [:button.button.is-info {:class [:admin-button]
                                                       :on-click (fn [] (confirm "Cancel out of office" "Do you really want to cancel out of office for the user?" #(admin-cancel-out-of-office! parking-zone parking-name formatted-date (:user_name data) (:email data) nil)))} "Cancel OoO"])
@@ -905,7 +927,7 @@
                              [:div.control
                                                    [:> Recaptcha {:verifyCallback #(reset! token %)
                                                                   :render "explicit"
-                                                                  :sitekey "password123"}]]])]
+                                                                  :sitekey js/recaptchaSiteKey}]]])]
                  [:footer.modal-card-foot
                   [:button.button {:disabled (not @token)
                                    :class (if (and (not (clojure.string/blank? @user-name)) (is-valid-email @email)) :is-success :is-danger)
@@ -931,16 +953,22 @@
           [:p.subtitle (goog.object/get js/user "user-name")]
           [:a.button.is-danger {:on-click #(logout!)} "Logout"]]
          [:article.tile.is-child.notification
-          (let [redirect-uri (js/encodeURIComponent (clojure.string/replace-first (clojure.string/replace-first (if (.startsWith js/contextUrl "http://local.") (clojure.string/replace-first js/contextUrl #":\d+" "") js/contextUrl) #"http://local\." "https://login.") #"https://\w+\." "https://login."))
+          (let [redirect-uri (js/encodeURIComponent (if (or (clojure.string/ends-with? js/contextUrl ".parkybot.com") (clojure.string/ends-with? js/contextUrl ".holdybot.com"))
+                                                      (clojure.string/replace-first (clojure.string/replace-first (if (.startsWith js/contextUrl "http://local.") (clojure.string/replace-first js/contextUrl #":\d+" "") js/contextUrl) #"http://local\." "https://login.") #"https://\w+\." "https://login.")
+                                                      js/contextUrl))
                 state (js/encodeURIComponent js/sessionState)]
             [:div
              [:p.title "Login "
               [:a.button.is-primary {:on-click #(swap! session assoc :show-email-token-login true)} "Email Token"]]
              [:p
-              [:a.button.is-primary {:href (str "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=77r6i32g7md1kd&redirect_uri=" redirect-uri "%2Foauth-callback%2Flinkedin&scope=r_liteprofile%20r_emailaddress&state=" state)} "LinkedIn"] " "
-              [:a.button.is-primary {:href (str "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=250400155045-5emtau8nf07c89g48h8kt7ngs9s862ms.apps.googleusercontent.com&redirect_uri=" redirect-uri "%2Foauth-callback%2Fgoogle&scope=openid%20email%20profile&state=" state)} "Google"] " "]])])
-              ;[:a.button.is-primary {:href (str "https://www.facebook.com/v4.0/dialog/oauth?response_type=code&client_id=401634160486389&redirect_uri=" redirect-uri "%2Foauth-callback%2Ffacebook&scope=email&state=" state)} "Facebook"] " "
-              ;[:a.button.is-primary {:href (str "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=acccfa2f-89e2-4e11-890d-414187bae1b4&redirect_uri=" redirect-uri "%2Foauth-callback%2Fazure&scope=openid%20User.Read&state=" state)} "Microsoft"]]])])
+              [:a.button.is-primary {:style (when (empty? js/openidLinkedIn) {:display :none})
+                                     :href (str "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=" js/openidLinkedIn "&redirect_uri=" redirect-uri "%2Foauth-callback%2Flinkedin&scope=r_liteprofile%20r_emailaddress&state=" state)} "LinkedIn"] " "
+              [:a.button.is-primary {:style (when (empty? js/openidGoogle) {:display :none})
+                                     :href (str "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=" js/openidGoogle "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fgoogle&scope=openid%20email%20profile&state=" state)} "Google"] " "
+              [:a.button.is-primary {:style (when (empty? js/openidFb) {:display :none})
+                                     :href (str "https://www.facebook.com/v4.0/dialog/oauth?response_type=code&client_id=" js/openidFb "&redirect_uri=" redirect-uri "%2Foauth-callback%2Ffacebook&scope=email&state=" state)} "Facebook"] " "
+              [:a.button.is-primary {:style (when (empty? js/openidAzure) {:display :none})
+                                     :href (str "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=" js/openidAzure "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fazure&scope=openid%20User.Read&state=" state)} "O365/Azure"]]])])
        [:article.tile.is-child.notification.is-warning
         [:p.title "Buy a diesel they said"]
         [:p.subtitle "But I had a clear goal and now I own 5 Teslas. The only diesel I have is my drink"]]]
@@ -962,7 +990,7 @@
    [:footer.footer
     [:div.content.has-text-centered
      [:p
-      [:strong (if (is-parky?) "parky" "holdy")] " by Tomas Lamr and friends. Made with ❤️ in Hradec Králové."]
+      [:strong js/appName] " by Tomas Lamr and friends. Made with ❤️ in Hradec Králové."]
      [:p [:a {:href "/#/privacy"} "Privacy"] " | " [:a {:href "/#/terms"} "Terms and conditions"] (when js/user " | ") (when js/user [:a {:href "/#/rules"} "Rules"])]]]])
 
 (defn calendar-page []
@@ -974,7 +1002,16 @@
     [:div.level.calendar-menu
      [:div.level-left
       [:div.level-item
-       [:span (:zone @score) " last 30 days"]]]]
+       [:span
+        [:label.label "Select " (or (:days-look-back @score) 30) " days @ " (:zone @score)]
+        [:div.select
+         [:select {:id :switch-score-days
+                   :name :switch-score-days
+                   :on-change (fn [v]
+                                (swap! score assoc :days-look-back (empty-to-nil (-> v .-target .-value)))
+                                (fetch-score! (:zone @score) (f/unparse-local-date lt/iso-local-date (t/today))))}
+          [:option {:key "Default" :value 30} "Select days from area"]
+          (map (fn [days] [:option {:key (key days) :value (val days)} (str (val days) " (" (key days) ")")]) (get-in @conf [:days-look-back (:zone @score)] {}))]]]]]]
     [:section.calendar-menu>div.container>div.content
      [:table.table
       [:thead
@@ -1043,7 +1080,7 @@
                checked (r/atom false)
                show-captcha (r/atom false)
                is-name-invalid #(nil? (re-matches #"[a-z0-9]+[a-z0-9\-]*[a-z0-9]+" %))
-               domain-suffix (if (is-parky?) ".staging.com" ".production.com")]
+               domain-suffix (if (is-parky?) ".parkybot.com" ".holdybot.com")]
     [:section.section.has-background-white>div.container>div.content
      [:h1 "Create a new app"]
      [:div.field
@@ -1092,7 +1129,7 @@
                           [:div.control
                            [:> Recaptcha {:verifyCallback #(reset! token %)
                                           :render "explicit"
-                                          :sitekey "password123"}]]])
+                                          :sitekey js/recaptchaSiteKey}]]])
      [:div.field.is-grouped
       [:div.control
        [:button.button.is-link {:disabled (when (or (not @checked) (not (is-valid-email @email)) (not @token) (is-name-invalid @name) (not= @email @email2)) :disabled)

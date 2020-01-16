@@ -19,7 +19,7 @@
     [expiring-map.core :as em])
   (:import))
 
-(def jwt-secret (get env :jwt-secret "d294eb91b2105dfd92ba424aa27c60abc3a9d5e33bbf12fc"))
+(def jwt-secret (get env :jwt-secret "sdfasdfasdfasdfasdfasdgdfghjzhtfghjztrgfhzftrfgtdf"))
 
 (def cache (em/expiring-map 60 {:max-size 1000})) ;; TODO: CHECK PERF!
 (defn get-jwt-valid-after [tenant_id jwt]
@@ -31,7 +31,7 @@
     jwt-valid-after))
 (defn wrap-identity [handler]
   (fn [request]
-    (let [id (get-in request [:cookies "identity" :value])
+    (let [id (get-in request [:cookies "ident" :value])
           jwt (when (not (clojure.string/blank? id))
                 (jwt/unsign id jwt-secret))]
         (binding [*identity* (if (and

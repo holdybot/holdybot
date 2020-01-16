@@ -3,6 +3,7 @@
     [selmer.parser :as parser]
     [selmer.filters :as filters]
     [markdown.core :refer [md-to-html-string]]
+    [parky.config :refer [env]]
     [ring.util.http-response :refer [content-type ok]]
     [ring.util.anti-forgery :refer [anti-forgery-field]]))
 
@@ -30,6 +31,12 @@
           :visitor (or (:visitor *identity*) false) ;; that was true before, can be changed once auth done properly
           :context-url *context-url*
           :session-state session-state
+          :app-name (get env :app-name "Holdy")
+          :recaptcha-site-key (get-in env [:recaptcha :sitekey])
+          :openid-fb (get-in env [:open-id-connect :facebook :api-key])
+          :openid-google (get-in env [:open-id-connect :google :api-key])
+          :openid-linkedin (get-in env [:open-id-connect :linkedin :api-key])
+          :openid-azure (get-in env [:open-id-connect :azure :api-key])
           :timestamp (build-timestamp))))
     "text/html; charset=utf-8"))
 

@@ -28,6 +28,13 @@
         var user = {{user|json|safe}};
         var visitor = !!{{visitor}};
         var sessionState = "{{session-state}}";
+        var appName = "{{app-name}}";
+        var recaptchaSiteKey = "{{recaptcha-site-key}}";
+        var openidFb = "{{openid-fb}}";
+        var openidLinkedIn = "{{openid-linkedin}}";
+        var openidGoogle = "{{openid-google}}";
+        var openidAzure = "{{openid-azure}}";
+        document.title = appName;
     </script>
     <script src="/js/app.js?{{timestamp}}" type="text/javascript"></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>

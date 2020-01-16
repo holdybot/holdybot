@@ -32,7 +32,7 @@
 (def cache (em/expiring-map 60 {:max-size 100})) ;; TODO: CHECK PERF!
 
 (defn is-root [email]
-  (some? (#{"root@example.com"} email)))
+  (some? ((get env :root-users #{}) email)))
 
 (defn admin-in [zones email]
   (let [a (atom {})]
@@ -51,7 +51,10 @@
 
 (defn find-zone-settings [tenant_id zone name]
   (let [settings (find-settings tenant_id)]
-    (first (filter #(and (= zone (:zone %)) (= name (:name %))) (:zones settings)))))
+    (let [found (first (filter #(and (= zone (:zone %)) (= name (:name %))) (:zones settings)))]
+      (merge found (merge {:timezone (or (:timezone settings) "Europe/Berlin")
+                           :bang-hour (Integer/valueOf (or (:bang-hour settings) 16))
+                           :bang-minute (Integer/valueOf (or (:bang-minute settings) 0))})))))
 
 (defn is-admin? [email zone]
   (let [loaded-tenant (if (nil? (:email (:tenant *identity*))) (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])}))]
@@ -66,8 +69,8 @@
 
 (def facebookv4 (FacebookApi/customVersion "4.0"))
 (defn- get-user-info-facebook [code domain]
-  (let [builder (doto (new ServiceBuilder "123")
-                  (.apiSecret "password123")
+  (let [builder (doto (new ServiceBuilder (get-in env [:open-id-connect :facebook :api-key]))
+                  (.apiSecret (get-in env [:open-id-connect :facebook :api-secret]))
                   (.defaultScope "email")
                   (.callback (str domain "/oauth-callback/facebook")))
         ^OAuth20Service service (.build builder facebookv4)
@@ -81,8 +84,8 @@
       user-info)))
 
 (defn- get-user-info-azure [code domain]
-  (let [builder (doto (new ServiceBuilder "123")
-                  (.apiSecret "password123")
+  (let [builder (doto (new ServiceBuilder (get-in env [:open-id-connect :azure :api-key]))
+                  (.apiSecret (get-in env [:open-id-connect :azure :api-secret]))
                   (.defaultScope "openid User.Read")
                   (.callback (str domain "/oauth-callback/azure")))
         ^OAuth20Service service (.build builder (MicrosoftAzureActiveDirectory20Api/instance))
@@ -97,8 +100,8 @@
       user-info)))
 
 (defn- get-user-info-google [code domain]
-  (let [builder (doto (new ServiceBuilder "123.apps.googleusercontent.com")
-                  (.apiSecret "password123")
+  (let [builder (doto (new ServiceBuilder (get-in env [:open-id-connect :google :api-key]))
+                  (.apiSecret (get-in env [:open-id-connect :google :api-secret]))
                   (.defaultScope "openid email profile")
                   (.callback (str domain "/oauth-callback/google")))
         ^OAuth20Service service (.build builder (GoogleApi20/instance))
@@ -113,8 +116,8 @@
       user-info)))
 
 (defn- get-user-info-linkedin [code domain]
-  (let [builder (doto (new ServiceBuilder "123")
-                  (.apiSecret "password123")
+  (let [builder (doto (new ServiceBuilder (get-in env [:open-id-connect :linkedin :api-key]))
+                  (.apiSecret (get-in env [:open-id-connect :linkedin :api-secret]))
                   (.defaultScope "r_liteprofile r_emailaddress")
                   (.callback (str domain "/oauth-callback/linkedin")))
         ^OAuth20Service service (.build builder (LinkedInApi20/instance))
@@ -178,17 +181,23 @@
            (swap! current-month assoc-in [(:parking_day rec) :outs] (+ outs max-slots))))
     (sort-by :parking_day (vals @current-month))))
 
-(defn get-score [parking-zone date]
+(defn get-score [parking-zone date days-look-back]
   (let [to (parse-date date)]
     (db/get-score {:tenant_id (get-in *identity* [:tenant :id])
                    :to to
-                   :from (jt/adjust to jt/minus (jt/days 30))
+                   :from (jt/adjust to jt/minus (jt/days days-look-back))
                    :parking_zone parking-zone})))
 
 (defn- create-disabled-days [zones]
   (let [m (atom {})]
     (doseq [zone zones]
       (reset! m (assoc-in @m [(:zone zone) (:name zone)] (:disabled-days zone))))
+    @m))
+
+(defn- create-days-look-back [zones]
+  (let [m (atom {})]
+    (doseq [zone zones]
+      (reset! m (assoc-in @m [(:zone zone) (:name zone)] (Integer/valueOf (or (:days-look-back zone) 30)))))
     @m))
 
 (defn get-user-tenant-conf []
@@ -198,7 +207,8 @@
      :is-admin (or (is-root (get-in *identity* [:user :email])) (some? (#{(:email tenant) (:admin tenant)} (get-in *identity* [:user :email]))))
      :is-admin-in (admin-in (:zones settings) (get-in *identity* [:user :email]))
      :zones (sort-by #(str (first %) (second %)) (map (fn [zone] [(:zone zone) (:name zone) (:disabled-days zone)]) (:zones settings)))
-     :disabled-days (create-disabled-days (:zones settings))}))
+     :disabled-days (create-disabled-days (:zones settings))
+     :days-look-back (create-days-look-back (:zones settings))}))
 
 (defn get-timezones []
   (let [n (LocalDateTime/now (ZoneId/of "UTC"))]
@@ -224,7 +234,7 @@
           (doseq-indexed i [slot (get-in @s [:zones idx :slots])]
                          (reset! s (assoc-in @s [:zones idx :slots i :types] (clojure.string/join " " (get-in slot [:types]))))))
         @s)
-      {:timezone "Europe/Berlin" :bang-hour 18 :zones []})))
+      {:timezone "Europe/Berlin" :bang-hour 16 :bang-minute 0 :zones []})))
 
 
 
@@ -235,7 +245,7 @@
                    (doseq-indexed i [slot (get-in @s [:zones idx :slots])]
                                   (reset! s (assoc-in @s [:zones idx :slots i :types] (into #{} (filter seq (clojure.string/split (get-in slot [:types] "") #"[\s,;]")))))))
     (db/set-settings {:tenant_id (get-in *identity* [:tenant :id])
-                      :bang_seconds_utc (- (+ (* 3600 (Integer/valueOf (get settings :bang-hour 18))) (* 60 (Integer/valueOf (get settings :bang-minute 0)))) (.getTotalSeconds (.getOffset (.getRules (ZoneId/of (get settings :timezone "Europe/Berlin"))) (LocalDateTime/now (ZoneId/of "UTC")))))
+                      :bang_seconds_utc (- (+ (* 3600 (Integer/valueOf (get settings :bang-hour 16))) (* 60 (Integer/valueOf (get settings :bang-minute 0)))) (.getTotalSeconds (.getOffset (.getRules (ZoneId/of (get settings :timezone "Europe/Berlin"))) (LocalDateTime/now (ZoneId/of "UTC")))))
                       :admin (:admin settings)
                       :settings (pr-str @s)})
     (em/assoc! cache (get-in *identity* [:tenant :id]) @s)))
@@ -287,8 +297,8 @@
                                    (computation/notification-visitor-request admin (:user-name user-info) (:email user-info) date (:zone zone) (:name zone))))
                                (do
                                  (db/add-parking! user)
-                                 (when (computation/is-after-bang-hour? (jt/minus date (jt/days 1)) zone)
-                                   (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
+                                 (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
+                                   (when (computation/is-after-bang-hour? (jt/minus date (jt/days 1)) loaded-zone)
                                      (computation/activate-winners zone date false [user] (computation/get-slots date loaded-zone) true false))))))))
 
 (defn admin-activate-click [zone date user-info slot-name]
@@ -401,7 +411,7 @@
   (def zone "Europe/Berlin")
   (def parking-name "prague")
   (def date (jt/local-date))
-  (def bang-hour 18))
+  (def bang-hour 16))
 
 (defn can-click? [date zone]
   (computation/is-before-bang-hour? date zone))
@@ -413,12 +423,13 @@
                                       :on-behalf-of true})
                     user-info)
         real-context-email (or context-email (:email user-info))
+        settings (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone))
         [parkings out] (conman/with-transaction [parky.db.core/*db*]
                                                 (let [parsed-date (parse-date date)]
-                                                    (when (can-click? parsed-date zone) (click-fn zone parsed-date user-data slot-name))
+                                                    (when (can-click? parsed-date settings) (click-fn settings parsed-date user-data slot-name))
                                                     [(db/get-parkings-by-day {:tenant_id (get-in *identity* [:tenant :id]) :parking_zone (:zone zone) :parking_name (:name zone) :parking_day parsed-date})
                                                      (db/has-out-slots? {:tenant_id (get-in *identity* [:tenant :id]) :email real-context-email :parking_zone (:zone zone) :parking_name (:name zone) :dates [parsed-date]})]))]
-    (add-owner-info {date (vec parkings)} (has-own-space? real-context-email (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone))) {date (vec out)})))
+    (add-owner-info {date (vec parkings)} (has-own-space? real-context-email settings) {date (vec out)})))
 
 (defn- send-login-redirect [session-state user-info]
   (let [tenant (db/get-tenant-by-host {:host (:host session-state)})
@@ -431,14 +442,14 @@
     (if (and (:activated tenant) (or (:allow-visitors settings) is-admin is-user))
       {:status  302
        :headers {"Location" location}
-       :cookies {"identity" {:path      "/"
-                             :http-only true
-                             :value     (jwt/sign {:user    (merge user-info {:is-admin is-admin})
-                                                   :visitor (and
-                                                              (not is-admin)
-                                                              (not is-user))
-                                                   :created (System/currentTimeMillis)
-                                                   :tenant  {:id (:id tenant) :host (:host tenant)}} parky.middleware/jwt-secret)}}
+       :cookies {"ident" {:path      "/"
+                          :http-only true
+                          :value     (jwt/sign {:user    (merge user-info {:is-admin is-admin})
+                                                :visitor (and
+                                                           (not is-admin)
+                                                           (not is-user))
+                                                :created (System/currentTimeMillis)
+                                                :tenant  {:id (:id tenant) :host (:host tenant)}} parky.middleware/jwt-secret)}}
        :body    ""}
       (layout/error-page {:status 401, :title "401 - Unauthorized"}))))
 
@@ -449,9 +460,14 @@
     (if (and session-state (get-in req [:cookies "x-csrf-token" :value]) (:csrf-token session-state) (= (get-in req [:cookies "x-csrf-token" :value]) (:csrf-token session-state)))
       (let [callback-location (if (= "localhost:3000" (:host session-state))
                                 "http://localhost:3000"
-                                (str "https://" (if (clojure.string/starts-with? (:host session-state) "local.")
-                                                  (clojure.string/replace-first (clojure.string/replace-first (:host session-state) #":\d+" "") #"local\." "login.")
-                                                  (clojure.string/replace-first (:host session-state) #"\w+\." "login."))))
+                                (str "https://" (if (or
+                                                      (clojure.string/ends-with? (:host session-state) ".parkybot.com")
+                                                      (clojure.string/ends-with? (:host session-state) ".holdybot.com"))
+                                                  (if (clojure.string/starts-with? (:host session-state) "local.")
+                                                    (clojure.string/replace-first (clojure.string/replace-first (:host session-state) #":\d+" "") #"local\." "login.")
+                                                    (clojure.string/replace-first (:host session-state) #"\w+\." "login."))
+                                                  (:host session-state))))
+
             user-info (user-info-fn code callback-location)]
         (send-login-redirect session-state user-info))
       (layout/error-page {:status 401, :title "401 - Unauthorized"}))))
@@ -486,6 +502,9 @@
                                                                                  (get-in req [:params :email])
                                                                                  (:email (:user *identity*)))]
                                                                      {:status 200
+                                                                      :cookies {"identity" {:max-age 0
+                                                                                            :path "/"
+                                                                                            :http-only true}}
                                                                       :body (get-days zone date email days)})
                                                                    {:status (if (:user *identity*) 403 401)}))}}]
 
@@ -515,14 +534,15 @@
                                                                 {:status 403}))
                                                             {:status 401})))}]
 
-   ["/score/:parking-zone/:date" {:get {:parameters {:path {:parking-zone string?, :date string?}}
-                                        :handler (fn [req]
-                                                   (let [parking-zone (get-in req [:parameters :path :parking-zone])
-                                                         date (get-in req [:parameters :path :date])]
-                                                     (if (and (:user *identity*))
-                                                       {:status 200
-                                                        :body (get-score parking-zone date)}
-                                                       {:status (if (:user *identity*) 403 401)})))}}]
+   ["/score/:parking-zone/:date/:days-look-back" {:get {:parameters {:path {:parking-zone string?, :date string?, :days-look-back integer?}}
+                                                        :handler (fn [req]
+                                                                   (let [parking-zone (get-in req [:parameters :path :parking-zone])
+                                                                         date (get-in req [:parameters :path :date])
+                                                                         days-look-back (get-in req [:parameters :path :days-look-back])]
+                                                                     (if (and (:user *identity*))
+                                                                       {:status 200
+                                                                        :body (get-score parking-zone date days-look-back)}
+                                                                       {:status (if (:user *identity*) 403 401)})))}}]
 
    ["/timezones" {:get {:handler (fn [req]
                                    (if (:user *identity*)
@@ -587,7 +607,7 @@
                               (let [token (get-in req [:parameters :query :token])
                                     email (get-in req [:parameters :query :email])
                                     name (get-in req [:parameters :query :name])
-                                    response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret "password123"
+                                    response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret (get-in env [:recaptcha :secretkey])
                                                                                                                             :response token}
                                                                                                              :content-type :json
                                                                                                              :as :json})
@@ -626,7 +646,7 @@
                                             user-name (get-in req [:parameters :query :user-name])
                                             raw-session-state (get-in req [:parameters :query :state])
                                                               session-state (if raw-session-state (jwt/unsign raw-session-state parky.middleware/jwt-secret) nil)
-                                            response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret "password123"
+                                            response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret (get-in env [:recaptcha :secretkey])
                                                                                                                                     :response token}
                                                                                                                      :content-type :json
                                                                                                                      :as :json})
@@ -863,9 +883,9 @@
 
    ["/logout" {:post {:handler (fn [req]
                                  {:status 200
-                                  :cookies {"identity" {:max-age 0
-                                                        :path "/"
-                                                        :http-only true}}})}}]
+                                  :cookies {"ident" {:max-age 0
+                                                     :path "/"
+                                                     :http-only true}}})}}]
    ["/logout-all-users" {:post {:handler (fn [_]
                                            (if (and (:user *identity*) (:tenant *identity*))
                                              (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})]
