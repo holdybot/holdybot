@@ -61,7 +61,7 @@
     (or
       (is-root email)
       (#{(:email loaded-tenant) (:admin loaded-tenant)} email)
-      (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)))]
+      (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
         (contains? (get-in loaded-zone [:admins]) email)))))
 
 (defn has-own-space? [email zone]
@@ -309,7 +309,7 @@
                                                                :parking_zone (:zone zone)
                                                                :parking_name (:name zone)})
                                              {:on_behalf_of (get user-info :on-behalf-of true)})
-                                 loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)))]
+                                 loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
                              (computation/activate-winners loaded-zone date false [user] (if slot-name [{:name slot-name}] (computation/get-slots date loaded-zone)) false true))))
 
 (defn admin-show-select-click [zone date user-name email]
@@ -502,9 +502,6 @@
                                                                                  (get-in req [:params :email])
                                                                                  (:email (:user *identity*)))]
                                                                      {:status 200
-                                                                      :cookies {"identity" {:max-age 0
-                                                                                            :path "/"
-                                                                                            :http-only true}}
                                                                       :body (get-days zone date email days)})
                                                                    {:status (if (:user *identity*) 403 401)}))}}]
 
