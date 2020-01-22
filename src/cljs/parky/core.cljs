@@ -33,7 +33,8 @@
 (defonce conf (r/atom {}))
 (defonce score (r/atom {:data nil
                         :days-look-back 30}))
-(defonce analytics (r/atom {:data nil}))
+(defonce analytics (r/atom {:current-date (t/first-day-of-the-month- (t/today))
+                            :data nil}))
 (defonce settings (r/atom {:timezones []
                            :settings []}))
 
@@ -582,8 +583,8 @@
     (fetch-analytics! (:zone @session) (:parking @session) date)))
 
 (defn change-date-to-today-analytics []
-  (swap! analytics assoc :current-date (t/today))
-  (fetch-analytics! (:zone @session) (:parking @session) (t/today)))
+  (swap! analytics assoc :current-date (t/first-day-of-the-month- (t/today)))
+  (fetch-analytics! (:zone @session) (:parking @session) (t/first-day-of-the-month- (t/today))))
 
 (defn dow [date]
   (case (t/day-of-week date)
@@ -1039,9 +1040,25 @@
 (defn show-chart
   [config-atom]
   (let [chart-data {:labels (vec (map :parking_day (:data @config-atom)))
-                    :series [(vec (map :actives (:data @config-atom))) (vec (map :outs (:data @config-atom)))]}
+                    :series [{:name :actives
+                              :data (vec (map :actives (:data @config-atom)))}
+                             {:name :outs
+                              :data (vec (map :outs (:data @config-atom)))}
+                             {:name :inactives
+                              :data (vec (map :inactives (:data @config-atom)))}
+                             {:name :blockeds
+                              :data (vec (map :blockeds (:data @config-atom)))}
+                             {:name :pendings
+                              :data (vec (map :pendings (:data @config-atom)))}]}
         options {:fullWidth true
-                 :axisY {:onlyInteger true}}]
+                 :series {:actives {:showArea true}
+                          :outs {:showArea true}
+                          :inactives {:showArea true}}
+                 :axisY {:onlyInteger true}
+                 :axisX {:labelInterpolationFnc #(str
+                                                   (subs (dow (f/parse-local-date lt/iso-local-date %)) 0 3)
+                                                   "\n"
+                                                   (subs % 8))}}]
     (js/Chartist.Line. ".ct-chart" (clj->js chart-data) (clj->js options))))
 
 (defn chart-component
@@ -1064,6 +1081,8 @@
         [:span.button {:on-click #(change-date-analytics t/minus 1)} [:i.material-icons "chevron_left"]]
         [:span.button {:on-click #(change-date-to-today-analytics)} "This month"]
         [:span.button {:on-click #(change-date-analytics t/plus 1)} [:i.material-icons "chevron_right"]]]]]
+     [:div.level-right
+      [:span "Since " (f/unparse-local-date lt/iso-local-date (:current-date @analytics))]]
      #_[:div.level-right
         [:div.buttons.has-addons
          [:span.button {:on-click #(js/window.open (str "/excel/" (:zone @session) "/" (:parking @session) "/" (f/unparse-local-date lt/iso-local-date (or (:current-date @analytics) (t/first-day-of-the-month- (t/now))))) "_blank")} [:i.material-icons "save_alt"]]]]]

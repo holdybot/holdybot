@@ -170,6 +170,9 @@
         current-month (atom (computation/flat-vals (group-by :parking_day (map (fn [item]
                                                                                  {:actives 0
                                                                                   :outs max-slots
+                                                                                  :pendings 0
+                                                                                  :blockeds 0
+                                                                                  :inactives 0
                                                                                   :parking_day (str item)}) month))))]
        (doseq [rec (db/get-active-count-for-time {:tenant_id (get-in *identity* [:tenant :id])
                                                   :from from

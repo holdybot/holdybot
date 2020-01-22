@@ -1,7 +1,7 @@
-(defproject parky "0.1.0-SNAPSHOT"
+(defproject parky "1.0.0-SNAPSHOT"
 
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "Parking and desk management app"
+  :url "https://github.com/holdybot/holdybot"
 
   :dependencies [[buddy/buddy-sign "3.0.0"]
                  [cheshire "5.8.1"]
@@ -13,40 +13,44 @@
                  [com.github.scribejava/scribejava-apis "6.7.0"]
                  [com.github.scribejava/scribejava-core "6.7.0"]
                  [com.github.scribejava/scribejava-httpclient-apache "6.7.0"]
-                 [com.google.javascript/closure-compiler-unshaded "v20190513" :scope "provided"]
-                 [com.google.protobuf/protobuf-java "3.6.1"]
+                 [com.google.javascript/closure-compiler-unshaded "v20191027" :scope "provided"]
+                 [com.google.protobuf/protobuf-java "3.11.1"]
                  [compact-uuids "0.2.0"]
-                 [conman "0.8.3"]
+                 [conman "0.8.4"]
                  [cprop "0.1.13"]
                  [expiring-map "0.1.9"]
                  [funcool/struct "1.3.0"]
                  [luminus-immutant "0.2.5"]
-                 [luminus-migrations "0.6.5"]
+                 [luminus-migrations "0.6.6"]
                  [luminus-transit "0.1.1"]
                  [luminus/ring-ttl-session "0.3.2"]
                  [markdown-clj "1.10.0"]
                  [metosin/muuntaja "0.6.4"]
-                 [metosin/reitit "0.3.5"]
+                 [metosin/reitit "0.3.10"]
                  [metosin/ring-http-response "0.9.1"]
                  [mount "0.1.16"]
                  [nrepl "0.6.0"]
                  [org.clojure/clojure "1.10.1"]
-                 [org.clojure/clojurescript "1.10.520" :scope "provided"]
+                 [org.clojure/clojurescript "1.10.597" :scope "provided"
+                  :exclusions [com.google.javascript/closure-compiler-unshaded
+                               org.clojure/google-closure-library
+                               org.clojure/google-closure-library-third-party]]
                  [org.clojure/data.json "0.2.6"]
-                 [org.clojure/google-closure-library "0.0-20190213-2033d5d9" :scope "provided"]
+                 [org.clojure/google-closure-library "0.0-20191016-6ae1f72f" :scope "provided"]
+                 [org.clojure/google-closure-library-third-party "0.0-20191016-6ae1f72f" :scope "provided"]
                  [org.clojure/tools.cli "0.4.2"]
                  [org.clojure/tools.logging "0.4.1"]
-                 [org.postgresql/postgresql "42.2.5"]
+                 [org.postgresql/postgresql "42.2.9"]
                  [org.webjars.npm/bulma "0.7.4"]
                  [org.webjars.npm/material-icons "0.3.0"]
                  [org.webjars/webjars-locator "0.36"]
                  [org.webjars/webjars-locator-jboss-vfs "0.1.0"]
-                 [reagent "0.8.1"]
+                 [reagent "0.9.0-rc4"]
                  [ring-webjars "0.2.0"]
                  [ring/ring-core "1.7.1"]
                  [ring/ring-defaults "0.3.2"]
                  [selmer "1.12.12"]
-                 [thheller/shadow-cljs "2.8.37" :scope "provided"]]
+                 [thheller/shadow-cljs "2.8.83" :scope "provided"]]
 
   :min-lein-version "2.0.0"
   
@@ -56,7 +60,7 @@
   :target-path "target/%s/"
   :main ^:skip-aot parky.core
 
-  :plugins [[lein-shadow "0.1.3"]
+  :plugins [[lein-shadow "0.1.7"]
             [lein-immutant "2.1.0"]]
   :clean-targets ^{:protect false}
   [:target-path "target/cljsbuild"]
@@ -74,10 +78,9 @@
      :output-to "target/test/test.js"
      :autorun true}}}
   
-  :npm-deps [[shadow-cljs "2.8.37"]
-             [create-react-class "15.6.3"]
-             [react "16.8.6"]
-             [react-dom "16.8.6"]
+  :npm-deps [[shadow-cljs "2.8.83"]
+             [react "16.9.0"]
+             [react-dom "16.9.0"]
              [bulma-toast "1.5.1"]
              [react-recaptcha "2.3.10"]]
 
@@ -94,9 +97,9 @@
    :test          [:project/dev :project/test :profiles/test]
 
    :project/dev  {:jvm-opts ["-Dconf=dev-config.edn"]
-                  :dependencies [[binaryage/devtools "0.9.10"]
+                  :dependencies [[binaryage/devtools "0.9.11"]
                                  [cider/piggieback "0.4.1"]
-                                 [expound "0.7.2"]
+                                 [expound "0.8.4"]
                                  [pjstadig/humane-test-output "0.9.0"]
                                  [prone "1.6.3"]
                                  [ring/ring-devel "1.7.1"]

@@ -122,8 +122,8 @@ WHERE tenant_id = :tenant_id and parking_day = :parking_day and parking_zone = :
 
 -- :name get-active-count-for-time :? :*
 -- :doc gets analytics for a zone and parking
-SELECT coalesce(sum(case status when 'active' then 1 else 0 end),0) as actives, coalesce(sum(case status when 'out' then 1 else 0 end), 0) as outs, to_char(parking_day, 'YYYY-MM-DD') as parking_day FROM parking
-WHERE tenant_id = :tenant_id and parking_zone = :parking_zone and parking_name = :parking_name and parking_day <= :to and parking_day >= :from and status in ('active','out')
+SELECT coalesce(sum(case status when 'active' then 1 else 0 end),0) as actives, coalesce(sum(case status when 'out' then 1 else 0 end), 0) as outs, coalesce(sum(case status when 'blocked' then 1 else 0 end), 0) as blockeds, coalesce(sum(case status when 'inactive' then 1 else 0 end), 0) as inactives, coalesce(sum(case status when 'pending' then 1 else 0 end), 0) as pendings, to_char(parking_day, 'YYYY-MM-DD') as parking_day FROM parking
+WHERE tenant_id = :tenant_id and parking_zone = :parking_zone and parking_name = :parking_name and parking_day <= :to and parking_day >= :from and status in ('active','out','blocked','inactive','pending')
 GROUP BY parking_day
 
 -- :name get-score :? :*
