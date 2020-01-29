@@ -85,6 +85,10 @@ body {
     background-color: #D2B48C !important;
 }
 
+.has-background-snow {
+    background-color: #fff;
+}
+
 .workday {
     background-color: #209cee;
     color: #fff;
@@ -109,6 +113,14 @@ body {
 }
 .weekend:hover {
     background-color: #1496ed;
+}
+
+.info {
+    border-radius: 4px;
+    border-bottom: 0.05rem solid #FAFAFA;
+    background-color: #6272a4;
+    color: #fff !important;
+    cursor: help;
 }
 
 .noselect {
@@ -137,13 +149,14 @@ body {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
     border-radius: 4px;
+    color: #4A4A4A;
     border-bottom: 0.05rem solid #f5f5f5;
 }
 
 .admin-button {
     padding:   0;
     height:    100%;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
 }
 
 .now-old {
@@ -151,8 +164,8 @@ body {
 }
 
 .now-current {
-    border-left: hsl(0, 0%, 49%) solid 0.5rem;
-    border-right: hsl(0, 0%, 49%) solid 0.5rem;
+    border-left: hsl(0, 0%, 40%) solid 0.5rem;
+    border-right: hsl(0, 0%, 40%) solid 0.5rem;
 }
 
 .material-icons.md-18 { font-size: 18px; }
@@ -226,4 +239,81 @@ body {
 
 .ct-series-e .ct-line, .ct-series-e .ct-point {
     stroke: hsl(48, 100%, 67%) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    html,
+    body {
+        background-color: #282a36;
+    }
+
+    .calendar-menu {
+        background-color: #282a36;
+    }
+
+    .column  {
+        border-left: 0.5px solid #282a36;
+        border-right: 0.5px solid #282a36;
+    }
+
+    .user-div {
+        border-bottom: 0.05rem solid #282a36;
+        color: #000;
+    }
+
+    .workday {
+        border-bottom: 0.05rem solid #282a36;
+    }
+
+    .weekend {
+        border-bottom: 0.05rem solid #282a36;
+    }
+
+    .has-background-snow {
+        background-color: #626262 !important;
+    }
+
+    .activeday {
+        color: #000 !important;
+    }
+
+    .inactiveday {
+        color: #000 !important;
+    }
+
+    .blockedday {
+        color: #000 !important;
+    }
+
+    .outday {
+        color: #000 !important;
+    }
+
+    .pendingday {
+        color: #000 !important;
+        background-color: #f1b70e !important;
+    }
+
+    .pendingday:hover {
+        background-color: #e6af0d !important;
+    }
+
+    .now-current {
+        border-left: hsl(0, 0%, 95%) solid 0.5rem;
+        border-right: hsl(0, 0%, 95%) solid 0.5rem;
+    }
+
+    .material-icons.md-18 { font-size: 16px; }
+    .material-icons.md-24 { font-size: 22px; }
+    .material-icons.md-36 { font-size: 34px; }
+    .material-icons.md-48 { font-size: 46px; }
+
+    .ct-label {
+        color: #fff;
+    }
+
+    .admin-button {
+        font-size: 0.8rem;
+    }
 }

@@ -1,0 +1,1 @@
+alter table parking drop column description

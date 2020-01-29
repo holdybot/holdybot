@@ -97,6 +97,25 @@
   (swap! session assoc-in [:data :own-default] (:own-default data)))
 
 
+(defn admin-add-info! [parking-zone parking-name date event-name description callback]
+  (show-spinner)
+  (POST (str "/admin/add-info/" parking-zone "/" parking-name "/" date) {:params {:event-name event-name
+                                                                                  :description description}
+                                                                         :handler default-handler
+                                                                         :error-handler error-handler
+                                                                         :finally (fn []
+                                                                                    (hide-spinner)
+                                                                                    (callback))}))
+
+(defn admin-delete-info! [parking-zone parking-name date event-name callback]
+  (show-spinner)
+  (POST (str "/admin/delete-info/" parking-zone "/" parking-name "/" date) {:params {:event-name event-name}
+                                                                            :handler default-handler
+                                                                            :error-handler error-handler
+                                                                            :finally (fn []
+                                                                                       (hide-spinner)
+                                                                                       (callback))}))
+
 (defn admin-activate! [parking-zone parking-name date user-name email slot-name]
   (show-spinner)
   (POST (str "/admin/activate/" parking-zone "/" parking-name "/" date) {:params {:user-name user-name
@@ -370,9 +389,6 @@
                                                 (swap! expanded? not))}
                                   zone]) zones))]])))
 
-(defn is-parky? []
-  (or (= "localhost" (.(. js/document -location) -hostname)) (.endsWith (.(. js/document -location) -hostname) "parkybot.com")))
-
 (defn navbar []
   (r/with-let [expanded? (r/atom false)]
     [:nav.navbar.is-info>div.container
@@ -412,7 +428,7 @@
 
 (defn rules-page []
   [:section.section>div.container>div.content
-   [:div.container>div.notification.has-background-white
+   [:div.container>div.notification.has-background-snow
     [:h2.subtitle "Rules"]
     [:ul
      [:li js/appName " decides who will park their butt every day at " (quot (:bang-seconds-utc @conf) 3600) ":" (gstring/format "%02d" (quot (mod (:bang-seconds-utc @conf) 3600) 60)) " GMT/UTC."]
@@ -429,14 +445,14 @@
 (defn privacy-page []
   [:section.section>div.container>div.content
    [:h2.subtitle "Privacy"]
-   [:div.container>div.notification.has-background-white
+   [:div.container>div.notification.has-background-snow
     [:ul
      [:li js/appName " stores your email and your name in a local database."]]]])
 
 (defn terms-page []
   [:section.section>div.container>div.content
    [:h2.subtitle "Terms"]
-   [:div.container>div.notification.has-background-white
+   [:div.container>div.notification.has-background-snow
     [:ul
      [:li "By using " js/appName " you are giving us an option for your soul."]]]])
 
@@ -451,7 +467,7 @@
    [:section.section>div.container>div.content
     [:h1 "Admin actions"]
     [:button.button.is-danger {:on-click logout-all-users!} "Logout all users"]]
-   [:section.section.has-background-white>div.container>div.content
+   [:section.section.has-background-snow>div.container>div.content
     [:h1 "Settings"]
     [:div.field.is-grouped.is-grouped-centered
      [:p.control
@@ -505,6 +521,9 @@
                                  [:input.input {:maxLength 32
                                                 :on-change #(swap! settings assoc-in [:settings :zones idx :name] (-> % .-target .-value))
                                                 :value (:name zone)}]]
+                                [:div.field [:label.label "Info Link"]
+                                 [:input.input {:on-change #(swap! settings assoc-in [:settings :zones idx :map] (empty-to-nil (-> % .-target .-value)))
+                                                :value (:map zone)}]]
                                 [:div.field [:label.label "Admins"]
                                  [:input.input {:placeholder "Emails"
                                                 :class [(when (not (is-valid-emails (get-in @settings [:settings :zones idx :admins]))) :is-danger)]
@@ -598,7 +617,7 @@
 
 (defn input-element
   "An input element which updates its value on change"
-  [id name type placeholder value]
+  [id name type placeholder maxlength value]
   [:input {:id id
            :name name
            :class :input
@@ -606,7 +625,20 @@
            :required true
            :value @value
            :placeholder placeholder
+           :maxLength maxlength
            :on-change #(reset! value (-> % .-target .-value))}])
+
+(defn textarea-element
+  "Text area element which updates its value on change"
+  [id name placeholder maxlength value]
+  [:textarea {:id id
+              :name name
+              :class :textarea
+              :required true
+              :value @value
+              :placeholder placeholder
+              :maxLength maxlength
+              :on-change #(reset! value (-> % .-target .-value))}])
 
 (defn select-types-input
   [types select-atom]
@@ -642,7 +674,7 @@
 
 (defn user-name-input
   [user-name-atom]
-  (input-element "user-name" "user-name" "text" "User Name" user-name-atom))
+  (input-element "user-name" "user-name" "text" "User Name" 32 user-name-atom))
 
 (defn switch-to-days [days]
   (fn [_]
@@ -762,6 +794,32 @@
                     [:button.button {:on-click (fn [_]
                                                  (swap! session assoc :show-types nil))} "Close"]]]])
 
+     (when (:show-admin @session)
+       (r/with-let [event-name (r/atom nil)
+                    description (r/atom nil)]
+                   [:div.modal {:class (when (:add-event @session) :is-active)}
+                    [:div.modal-background]
+                    [:div.modal-card
+                     [:header.modal-card-head
+                      [:p.modal-card-title "Add event"]
+                      [:button.delete {:aria-label "close"
+                                       :on-click #(swap! session assoc :add-event nil)}]]
+                     [:section.modal-card-body
+                      [:div.field
+                       [:div.control
+                        [input-element "event-name" "event-name" "text" "Event Name" 32 event-name]]]
+                      [:div.field
+                       [:div.control
+                        [textarea-element "event-description" "event-description" "Event Description" 255 description]]]]
+                     [:footer.modal-card-foot
+                      [:button.button {:class    (if (empty? @event-name) :is-danger :is-success)
+                                       :on-click (fn [_]
+                                                   (admin-add-info! parking-zone parking-name (get-in @session [:add-event :date]) @event-name @description #(fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session)))
+                                                   (reset! event-name nil)
+                                                   (reset! description nil)
+                                                   (swap! session assoc :add-event nil))} "Add"]
+                      [:button.button {:on-click #(swap! session assoc :add-event nil)} "Close"]]]]))
+
      [:div.modal {:class (when (:show-confirm @session) :is-active)}
       [:div.modal-background]
       [:div.modal-card
@@ -776,7 +834,13 @@
                                                 (swap! session assoc :show-confirm nil))} "Okay"]
         [:button.button {:on-click #(swap! session assoc :show-confirm nil)} "Close"]]]]
 
-     [:div.level-right
+     (when-not (empty? (get-in @conf [:map-links parking-zone parking-name]))
+       [:div.level-left
+        [:div.level-item
+         [:div.buttons.has-addons [:a.button {:target :_blank
+                                              :href (get-in @conf [:map-links parking-zone parking-name]) } "Show Info"]]]])
+
+     [:div.level-left
       [:div.level-item
        [:div.buttons.has-addons
         [:span.button (if (= 2 (:show-days-count @session))
@@ -800,7 +864,10 @@
                     now-status (cond
                                  (and (is-after-bang-hour? (t/minus the-date (t/days 1))) (is-before-bang-hour? the-date)) :now-current
                                  (is-before-bang-hour? the-date) :now-new
-                                 :else :now-old)]
+                                 :else :now-old)
+                    all-the-rows (group-by #(= (:status %) "info") (get-in @session [:data :days formatted-date :data]))
+                    infos (get all-the-rows true)
+                    rows (get all-the-rows false)]
                 [:div.column {:key formatted-date}
                  (let [with-own (or (get-in @session [:data :days formatted-date :own]) (get-in @session [:data :own-default]))
                        with-present (filter #(and (#{"active" "pending" "inactive" "blocked"} (:status %)) (= (if (some? (get-in @session [:on-behalf-of :email])) (get-in @session [:on-behalf-of :email]) (goog.object/get js/user "email")) (:email %))) (get-in @session [:data :days formatted-date :data]))
@@ -819,48 +886,62 @@
                                      now-status
                                      :tooltip :is-tooltip-black
                                      (if (#{6 7} (t/day-of-week the-date)) "weekend" "workday")])]
-                   [:div.has-text-centered.noselect {:class css
-                                                     :data-tooltip (case now-status
-                                                                     :now-old "This day is already gone"
-                                                                     (if (= :out with-own)
-                                                                       "Cancel out of office"
-                                                                       (if (= :yes with-own)
-                                                                         "Set out of office"
-                                                                         (if (seq with-active)
-                                                                           "Give up"
-                                                                           (if (or (seq with-pending) (seq with-inactive))
-                                                                             "Cancel reservation"
-                                                                             (if (seq with-blocked)
-                                                                               "Blocked, only admin can help"
-                                                                               "Make reservation"))))))
+                   [:div
+                    (doall (for [data infos]
+                             [:div.has-text-centered.user-div.info {:class (when-not (empty? (:description data)) [:tooltip :is-tooltip-black :is-tooltip-multiline])
+                                                                    :data-tooltip (:description data)
+                                                                    :key (:id data)}
+                              (when-not (empty? (:description data)) [:i.material-icons.md-18 "info"])
+                              " "
+                              (:email data)
+                              (when (:show-admin @session) [:span " " [:button.button.is-black.admin-button {:on-click (fn []
+                                                                                                                         (admin-delete-info! parking-zone parking-name formatted-date (:email data) #(fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session))))} "Delete"]])]))
+                    (when (:show-admin @session)
+                      [:div.has-text-centered.noselect.info.user-div
+                       [:button.button.is-white.admin-button.tooltip.is-tooltip-black {:data-tooltip "Add an event"
+                                                                                       :on-click #(swap! session assoc :add-event {:date formatted-date})} "Add"]])
+                    [:div.has-text-centered.noselect {:class css
+                                                      :data-tooltip (case now-status
+                                                                      :now-old "This day is already gone"
+                                                                      (if (= :out with-own)
+                                                                        "Cancel out of office"
+                                                                        (if (= :yes with-own)
+                                                                          "Set out of office"
+                                                                          (if (seq with-active)
+                                                                            "Give up"
+                                                                            (if (or (seq with-pending) (seq with-inactive))
+                                                                              "Cancel reservation"
+                                                                              (if (seq with-blocked)
+                                                                                "Blocked, only admin can help"
+                                                                                "Make reservation"))))))
 
-                                                     :on-click (fn [_]
-                                                                 (when (not= now-status :now-old)
-                                                                   (if (= :out with-own)
-                                                                     (cancel-out-of-office! parking-zone parking-name the-date)
-                                                                     (if (= :yes with-own)
-                                                                       (set-out-of-office! parking-zone parking-name the-date)
-                                                                       (if (seq with-active)
-                                                                         (deactivate! parking-zone parking-name the-date)
-                                                                         (if (or (seq with-pending) (seq with-inactive))
-                                                                           (cancel! parking-zone parking-name the-date)
-                                                                           (when (empty? with-blocked) (show-types parking-zone parking-name #(reserve! parking-zone parking-name the-date %)))))))))}
-                    [:span {:style {:white-space :nowrap}} (dow the-date) [:i.material-icons.md-18 (case now-status
-                                                                                                     :now-old "check_box_outline_blank"
-                                                                                                     (if (= :out with-own)
-                                                                                                       "remove_circle_outline"
-                                                                                                       (if (= :yes with-own)
-                                                                                                         "check_circle_outline"
-                                                                                                         (if (seq with-active)
-                                                                                                           "check_circle_outline"
-                                                                                                           (if (seq with-pending)
-                                                                                                             "wb_sunny"
-                                                                                                             (if (seq with-inactive)
-                                                                                                               "outlined_flag"
-                                                                                                               (when (seq with-blocked)
-                                                                                                                 "delete_outline")))))))]]
-                    [:br] [:span {:style {:white-space :nowrap}} formatted-date]])
-                 (doall (for [data (get-in @session [:data :days formatted-date :data])]
+                                                      :on-click (fn [_]
+                                                                  (when (not= now-status :now-old)
+                                                                    (if (= :out with-own)
+                                                                      (cancel-out-of-office! parking-zone parking-name the-date)
+                                                                      (if (= :yes with-own)
+                                                                        (set-out-of-office! parking-zone parking-name the-date)
+                                                                        (if (seq with-active)
+                                                                          (deactivate! parking-zone parking-name the-date)
+                                                                          (if (or (seq with-pending) (seq with-inactive))
+                                                                            (cancel! parking-zone parking-name the-date)
+                                                                            (when (empty? with-blocked) (show-types parking-zone parking-name #(reserve! parking-zone parking-name the-date %)))))))))}
+                     [:span {:style {:white-space :nowrap}} (dow the-date) [:i.material-icons.md-18 (case now-status
+                                                                                                      :now-old "check_box_outline_blank"
+                                                                                                      (if (= :out with-own)
+                                                                                                        "remove_circle_outline"
+                                                                                                        (if (= :yes with-own)
+                                                                                                          "check_circle_outline"
+                                                                                                          (if (seq with-active)
+                                                                                                            "check_circle_outline"
+                                                                                                            (if (seq with-pending)
+                                                                                                              "wb_sunny"
+                                                                                                              (if (seq with-inactive)
+                                                                                                                "outlined_flag"
+                                                                                                                (when (seq with-blocked)
+                                                                                                                  "delete_outline")))))))]]
+                     [:br] [:span {:style {:white-space :nowrap}} formatted-date]]])
+                 (doall (for [data rows]
                           [:div.has-text-centered {:key   (:id data)
                                                    :class (flatten [:user-div
                                                                     (cond
@@ -954,7 +1035,7 @@
           [:p.subtitle (goog.object/get js/user "user-name")]
           [:a.button.is-danger {:on-click #(logout!)} "Logout"]]
          [:article.tile.is-child.notification
-          (let [redirect-uri (js/encodeURIComponent (if (or (clojure.string/ends-with? js/contextUrl ".parkybot.com") (clojure.string/ends-with? js/contextUrl ".holdybot.com"))
+          (let [redirect-uri (js/encodeURIComponent (if (clojure.string/ends-with? js/contextUrl (str "." js/multitenantDomain))
                                                       (clojure.string/replace-first (clojure.string/replace-first (if (.startsWith js/contextUrl "http://local.") (clojure.string/replace-first js/contextUrl #":\d+" "") js/contextUrl) #"http://local\." "https://login.") #"https://\w+\." "https://login.")
                                                       js/contextUrl))
                 state (js/encodeURIComponent js/sessionState)]
@@ -1023,6 +1104,7 @@
         [:th "Points"]
         [:th "Records"]
         [:th.has-background-success "Wins"]
+        [:th.has-background-inactive "Loses"]
         [:th.has-background-dangerous "GiveUps"]
         [:th.has-background-grey-lighter "Outs"]]]
       [:tbody
@@ -1034,7 +1116,8 @@
                               [:td (:points item)]
                               [:td (:count item)]
                               [:td (:actives item)]
-                              [:td (:blocks item)]
+                              [:td (:inactives item)]
+                              [:td (:blockeds item)]
                               [:td (:outs item)]]) (:data @score)))]]]]])
 
 (defn show-chart
@@ -1099,7 +1182,7 @@
                checked (r/atom false)
                show-captcha (r/atom false)
                is-name-invalid #(nil? (re-matches #"[a-z0-9]+[a-z0-9\-]*[a-z0-9]+" %))
-               domain-suffix (if (is-parky?) ".parkybot.com" ".holdybot.com")]
+               domain-suffix (str "." js/multitenantDomain)]
     [:section.section.has-background-white>div.container>div.content
      [:h1 "Create a new app"]
      [:div.field

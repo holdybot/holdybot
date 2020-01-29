@@ -55,27 +55,27 @@
 (defn- notification-activated [email date parking-zone parking-name slot-name]
   (notification email
                 (str "You have won a space " slot-name " in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Congratulations! Your " (get env :app-name "Holdy") " at http://" (get-in *identity* [:tenant :host]))))
+                (str "Congratulations! Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
 
 (defn- notification-deactivated [email date parking-zone parking-name]
   (notification email
                 (str "Sorry, there is no free space for your request in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]))))
+                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
 
 (defn notification-deactivated-by-admin [email date parking-zone parking-name]
   (notification email
                 (str "Sorry, admin has just cancelled your space in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]))))
+                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
 
 (defn notification-gave-up [email date parking-zone parking-name]
   (notification email
                 (str "Someone has given up their space in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "If you still need the place, please make a reservation asap. If the space is still free, you will get it immediately. Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]))))
+                (str "If you still need the place, please make a reservation asap. If the space is still free, you will get it immediately. Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
 
 (defn notification-visitor-request [admin-email user-name email date parking-zone parking-name]
   (notification admin-email
                 (str "Dear admin, visitor " user-name " " email " asks for space in " parking-zone " " parking-name)
-                (str "Please check their request for " date ". Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]))))
+                (str "Please check their request for " date ". Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
 
 (defn get-slots [date zone]
   (let [taken-slot-names (into #{} (map :slot_name (db/get-taken-slots {:tenant_id    (get-in *identity* [:tenant :id])

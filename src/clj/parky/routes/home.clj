@@ -203,6 +203,12 @@
       (reset! m (assoc-in @m [(:zone zone) (:name zone)] (Integer/valueOf (or (:days-look-back zone) 30)))))
     @m))
 
+(defn- create-map-links [zones]
+  (let [m (atom {})]
+    (doseq [zone zones]
+      (reset! m (assoc-in @m [(:zone zone) (:name zone)] (:map zone))))
+    @m))
+
 (defn get-user-tenant-conf []
   (let [tenant (db/get-whole-tenant-by-id {:id (get-in *identity* [:tenant :id])})
         settings (edn/read-string (:settings tenant))]
@@ -211,7 +217,8 @@
      :is-admin-in (admin-in (:zones settings) (get-in *identity* [:user :email]))
      :zones (sort-by #(str (first %) (second %)) (map (fn [zone] [(:zone zone) (:name zone) (:disabled-days zone)]) (:zones settings)))
      :disabled-days (create-disabled-days (:zones settings))
-     :days-look-back (create-days-look-back (:zones settings))}))
+     :days-look-back (create-days-look-back (:zones settings))
+     :map-links (create-map-links (:zones settings))}))
 
 (defn get-timezones []
   (let [n (LocalDateTime/now (ZoneId/of "UTC"))]
@@ -314,6 +321,23 @@
                                              {:on_behalf_of (get user-info :on-behalf-of true)})
                                  loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
                              (computation/activate-winners loaded-zone date false [user] (if slot-name [{:name slot-name}] (computation/get-slots date loaded-zone)) false true))))
+
+(defn admin-add-info-click  [parking-zone parking-name date event-name description]
+  (conman/with-transaction [parky.db.core/*db*]
+                           (db/add-info! {:tenant_id (get-in *identity* [:tenant :id])
+                                          :event_name event-name
+                                          :parking_day (parse-date date)
+                                          :parking_zone parking-zone
+                                          :parking_name parking-name
+                                          :description description})))
+
+(defn admin-delete-info-click [parking-zone parking-name date event-name]
+  (conman/with-transaction [parky.db.core/*db*]
+                           (db/delete-info! {:tenant_id (get-in *identity* [:tenant :id])
+                                              :event_name event-name
+                                              :parking_day (parse-date date)
+                                              :parking_zone parking-zone
+                                              :parking_name parking-name})))
 
 (defn admin-show-select-click [zone date user-name email]
   (conman/with-transaction [parky.db.core/*db*]
@@ -427,11 +451,12 @@
                     user-info)
         real-context-email (or context-email (:email user-info))
         settings (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone))
+        fetch-fn (if (:visitor *identity*) db/get-visitor-parkings-by-day db/get-parkings-by-day)
         [parkings out] (conman/with-transaction [parky.db.core/*db*]
                                                 (let [parsed-date (parse-date date)]
-                                                    (when (can-click? parsed-date settings) (click-fn settings parsed-date user-data slot-name))
-                                                    [(db/get-parkings-by-day {:tenant_id (get-in *identity* [:tenant :id]) :parking_zone (:zone zone) :parking_name (:name zone) :parking_day parsed-date})
-                                                     (db/has-out-slots? {:tenant_id (get-in *identity* [:tenant :id]) :email real-context-email :parking_zone (:zone zone) :parking_name (:name zone) :dates [parsed-date]})]))]
+                                                  (when (can-click? parsed-date settings) (click-fn settings parsed-date user-data slot-name))
+                                                  [(fetch-fn {:tenant_id (get-in *identity* [:tenant :id]) :parking_zone (:zone zone) :parking_name (:name zone) :parking_day parsed-date :email real-context-email})
+                                                   (db/has-out-slots? {:tenant_id (get-in *identity* [:tenant :id]) :email real-context-email :parking_zone (:zone zone) :parking_name (:name zone) :dates [parsed-date]})]))]
     (add-owner-info {date (vec parkings)} (has-own-space? real-context-email settings) {date (vec out)})))
 
 (defn- send-login-redirect [session-state user-info]
@@ -463,9 +488,7 @@
     (if (and session-state (get-in req [:cookies "x-csrf-token" :value]) (:csrf-token session-state) (= (get-in req [:cookies "x-csrf-token" :value]) (:csrf-token session-state)))
       (let [callback-location (if (= "localhost:3000" (:host session-state))
                                 "http://localhost:3000"
-                                (str "https://" (if (or
-                                                      (clojure.string/ends-with? (:host session-state) ".parkybot.com")
-                                                      (clojure.string/ends-with? (:host session-state) ".holdybot.com"))
+                                (str "https://" (if (clojure.string/ends-with? (:host session-state) (str "." (get env :multitenant-domain)))
                                                   (if (clojure.string/starts-with? (:host session-state) "local.")
                                                     (clojure.string/replace-first (clojure.string/replace-first (:host session-state) #":\d+" "") #"local\." "login.")
                                                     (clojure.string/replace-first (:host session-state) #"\w+\." "login."))
@@ -612,7 +635,7 @@
                                                                                                              :content-type :json
                                                                                                              :as :json})
                                     is-success (get-in response [:body :success])]
-                                (if (and is-success (< 18 (count name))) ;; 6.8.3 ;; smthng.holdybot.com
+                                (if (and is-success (< (+ 7 (count (get env :multitenant-domain))) (count name))) ;; 6.8.3 ;; smthng.holdybot.com
                                   (do
                                     (let [activation-token (uuid/str (java.util.UUID/randomUUID))
                                           link (str "https://" (clojure.string/replace-first name #"[a-z0-9\-]+\." "app.") "/activate?name=" (URLEncoder/encode name "UTF-8") "&token=" (URLEncoder/encode activation-token "UTF-8"))]
@@ -677,6 +700,33 @@
                                                                      {:status 200
                                                                       :body (click-parking zone date (:user user-info) admin-activate-click user-name email slot-name context-email)}
                                                                      {:status (if (:user *identity*) 403 401)})))}]
+
+   ["/admin/add-info/:parking-zone/:parking/:date" {:post {:parameters {:path {:date string?, :parking string?, :parking-zone string?}}}
+                                                    :handler (fn [req]
+                                                               (let [date (get-in req [:parameters :path :date])
+                                                                     parking (get-in req [:parameters :path :parking])
+                                                                     parking-zone (get-in req [:parameters :path :parking-zone])
+                                                                     event-name (get-in req [:body-params :event-name])
+                                                                     description (get-in req [:body-params :description])
+                                                                     zone {:zone parking-zone :name parking}]
+                                                                 (if (and (:user *identity*) (not (:visitor *identity*)) (is-admin? (:email (:user *identity*)) zone))
+                                                                   (do
+                                                                     (admin-add-info-click parking-zone parking date event-name description)
+                                                                     {:status 200})
+                                                                   {:status (if (:user *identity*) 403 401)})))}]
+
+   ["/admin/delete-info/:parking-zone/:parking/:date" {:post {:parameters {:path {:date string?, :parking string?, :parking-zone string?}}}
+                                                       :handler (fn [req]
+                                                                  (let [date (get-in req [:parameters :path :date])
+                                                                        parking (get-in req [:parameters :path :parking])
+                                                                        parking-zone (get-in req [:parameters :path :parking-zone])
+                                                                        event-name (get-in req [:body-params :event-name])
+                                                                        zone {:zone parking-zone :name parking}]
+                                                                    (if (and (:user *identity*) (not (:visitor *identity*)) (is-admin? (:email (:user *identity*)) zone))
+                                                                      (do
+                                                                        (admin-delete-info-click parking-zone parking date event-name)
+                                                                        {:status 200})
+                                                                      {:status (if (:user *identity*) 403 401)})))}]
 
    ["/admin/cancel-out-of-office/:parking-zone/:parking/:date" {:post {:parameters {:path {:date string?, :parking string?, :parking-zone string?}}}
                                                                 :handler (fn [req]

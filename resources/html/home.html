@@ -17,6 +17,7 @@
     <!-- scripts and styles -->
     {% style "/assets/bulma/css/bulma.min.css" %}
     {% style "/css/bulma-tooltip.min.css" %}
+    <link href="/css/bulmaswatch.min.css" rel="stylesheet" type="text/css" media="screen and (prefers-color-scheme: dark)">
     {% style "/css/animate.min.css" %}
     {% style "/css/chartist.min.css" %}
     {% style "/assets/material-icons/css/material-icons.min.css" %}
@@ -29,6 +30,7 @@
         var visitor = !!{{visitor}};
         var sessionState = "{{session-state}}";
         var appName = "{{app-name}}";
+        var multitenantDomain = "{{multitenant-domain}}";
         var recaptchaSiteKey = "{{recaptcha-site-key}}";
         var openidFb = "{{openid-fb}}";
         var openidLinkedIn = "{{openid-linkedin}}";

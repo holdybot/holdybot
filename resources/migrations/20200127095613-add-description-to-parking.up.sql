@@ -1,0 +1,1 @@
+alter table parking add column description varchar(255)
