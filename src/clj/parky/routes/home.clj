@@ -461,7 +461,8 @@
 
 (defn- send-login-redirect [session-state user-info]
   (let [tenant (db/get-tenant-by-host {:host (:host session-state)})
-        location (if (or (= "localhost:3000" (:host session-state)) (clojure.string/starts-with? (:host session-state) "local.")) (str "http://" (:host session-state)) (str "https://" (:host session-state)))
+        is-http (or (= "localhost:3000" (:host session-state)) (clojure.string/starts-with? (:host session-state) "local."))
+        location (if is-http (str "http://" (:host session-state)) (str "https://" (:host session-state)))
         is-admin (or (is-root (:email user-info)) (some? (#{(:email tenant) (:admin tenant)} (:email user-info))))
         settings (find-settings (:id tenant))
         is-user (or
@@ -472,6 +473,7 @@
        :headers {"Location" location}
        :cookies {"ident" {:path      "/"
                           :http-only true
+                          :secure (not is-http)
                           :value     (jwt/sign {:user    (merge user-info {:is-admin is-admin})
                                                 :visitor (and
                                                            (not is-admin)
@@ -508,12 +510,14 @@
                           (let [csrf-token (if (get-in req [:cookies "x-csrf-token" :value])
                                              (get-in req [:cookies "x-csrf-token" :value])
                                              (bytes->hex (hash/sha256 (.toString (java.util.UUID/randomUUID)))))
+                                host (get-in req [:headers "x-forwarded-host"] (get-in req [:headers "host"] "localhost:3000"))
                                 session-state (jwt/sign {:csrf-token csrf-token
-                                                         :host (get-in req [:headers "x-forwarded-host"] (get-in req [:headers "host"] "localhost:3000"))} parky.middleware/jwt-secret)] ;; good enough for me today, ciao future myself! :)
+                                                         :host host} parky.middleware/jwt-secret)] ;; good enough for me today, ciao future myself! :)
                             (merge
                               (home-page req csrf-token session-state)
                               {:cookies {"x-csrf-token" {:path "/"
                                                          :http-only true
+                                                         :secure (not (or (clojure.string/starts-with? host "local.") (= "localhost:3000" host)))
                                                          :value csrf-token}}})))}}]
 
    ["/days/:days/:parking-zone/:parking/:date" {:get {:parameters {:path {:date string?, :parking string?, :parking-zone string?, :days integer?}}
