@@ -645,7 +645,7 @@
   [:div.select [:select {:id :show-types
                          :name :show-types
                          :on-change #(reset! select-atom (empty-to-nil (-> % .-target .-value)))}
-                [:option {:value ""} "None"]
+                [:option {:value ""} "Any"]
                 (doall (for [type types]
                          [:option {:key type
                                    :value type} type]))]])

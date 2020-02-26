@@ -134,10 +134,10 @@ GROUP BY parking_day
 
 -- :name get-score :? :*
 -- :doc gets score for a zone
-SELECT max(user_name) as user_name,email,sum(points) as points,count(email) as count,sum(case status when 'active' then 1 else 0 end) as actives,sum(case status when 'out' then 1 else 0 end) as outs,sum(case status when 'blocked' then 1 else 0 end) as blockeds,coalesce(sum(case status when 'inactive' then 1 else 0 end), 0) as inactives FROM parking
-WHERE tenant_id = :tenant_id and parking_zone = :parking_zone and parking_day <= :to and parking_day >= :from
+SELECT max(user_name) as user_name,email,coalesce(sum(points),0) as points,count(email) as count,sum(case status when 'active' then 1 else 0 end) as actives,sum(case status when 'out' then 1 else 0 end) as outs,sum(case status when 'blocked' then 1 else 0 end) as blockeds,coalesce(sum(case status when 'inactive' then 1 else 0 end), 0) as inactives FROM parking
+WHERE tenant_id = :tenant_id and parking_zone = :parking_zone and parking_day <= :to and parking_day >= :from and status in ('active','out','blocked','inactive','pending')
 GROUP BY email
-ORDER BY points DESC NULLS LAST, count DESC NULLS LAST
+ORDER BY points ASC NULLS LAST, count DESC NULLS LAST
 
 -- :name add-info! :! :n
 INSERT INTO parking
