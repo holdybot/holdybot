@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Holdybot.com</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="stylesheet" href="https://unpkg.com/bulma@0.7.5/css/bulma.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/bulma-pricingtable@0.2.0/dist/css/bulma-pricingtable.min.css" />
+    <style>
+        html,body {
+            background: #EFF3F4;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        .hero-body .container {
+            max-width: 700px;
+        }
+        .hero-body .subtitle {
+            padding-top: 2rem;
+            line-height: 1.5;
+        }
+        .features {
+            padding: 5rem 0;
+        }
+        .box.cta {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+        .card-image > .fa {
+            font-size: 8rem;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            color: #209cee;
+        }
+        .card-content .content {
+            font-size: 14px;
+            margin: 1rem 1rem;
+        }
+        .card-content .content h4 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .card {
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.18);
+            margin-bottom: 2rem;
+        }
+        .intro {
+            padding: 5rem 0;
+            text-align: center;
+        }
+        .sandbox {
+            padding: 5rem 0;
+        }
+        .tile.notification {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .is-shady {
+            animation: flyintoright .4s backwards;
+            background: #fff;
+            box-shadow: rgba(0, 0, 0, .1) 0 1px 0;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 10px;
+            position: relative;
+            transition: all .2s ease-in-out;
+        }
+        .is-shady:hover {
+            box-shadow: 0 10px 16px rgba(0, 0, 0, .13), 0 6px 6px rgba(0, 0, 0, .19);
+        }
+    </style>
+</head>
+<body>
+<section class="hero is-warning is-small is-bold">
+    <div class="hero-head">
+        <nav class="navbar">
+            <div class="container">
+                <div class="navbar-brand">
+                    <a class="navbar-item" href="../">
+                        <b>Holdybot.com</b>
+                    </a>
+                    <span class="navbar-burger burger" data-target="navbarMenu">
+		      <span></span>
+		      <span></span>
+		      <span></span>
+                     </span>
+                </div>
+		<div id="navbarMenu" class="navbar-menu">
+                            <div class="navbar-end">
+                                <div class="tabs is-right">
+                                  <ul>
+				      <li style="background-color:black;color:white"><a style="color:white" href="https://app.holdybot.com/#/new">Sign up</a></li>
+				      <li><a href="https://github.com/holdybot/holdybot/wiki">Documentation</a></li>
+                                      <li><a href="https://github.com/holdybot/holdybot/issues">Issues</a></li>
+                                      <li><a href="https://twitter.com/holdy_bot">News</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+    <div class="hero-body">
+        <div class="container has-text-centered">
+            <h1 class="title">
+                Holdybot holds a space for you!
+            </h1>
+            <h2 class="subtitle">
+                Either it is parking space, desk space or any other thing that you share.
+            </h2>
+        </div>
+    </div>
+</section>
+<div class="box cta">
+    <p class="has-text-centered">
+         Feel free to <a class="button is-success tag" href="https://app.holdybot.com/#/new">Sign up</a>
+    </p>
+</div>
+<div class="box cta" style="min-height:330px;text-align:center">
+    <iframe style="min-height:315px;min-width:560px" width="560" height="315" src="https://www.youtube.com/embed/J-apTcFxKsk" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div> 
+<a id="contact"></a>
+<footer class="footer">
+    <div class="content has-text-centered">
+        <p>
+            <strong>Holdybot</strong> by Tomas Lamr with ❤️ in Hradec Králové<br>
+            <a href="mailto:tomas@lamr.org">tomas@lamr.org</a>
+        </p>
+    </div>
+</footer>
+<script>
+    (function() {
+        var burger = document.querySelector('.burger');
+        var menu = document.querySelector('#'+burger.dataset.target);
+        burger.addEventListener('click', function() {
+            burger.classList.toggle('is-active');
+            menu.classList.toggle('is-active');
+        });
+    })();
+</script>
+</body>
+</html>
