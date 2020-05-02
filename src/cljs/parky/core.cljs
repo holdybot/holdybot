@@ -3,6 +3,7 @@
     [goog.string :as gstring]
     [goog.string.format]
     [reagent.core :as r]
+    [reagent.dom :as d]
     [goog.events :as events]
     [goog.history.EventType :as HistoryEventType]
     [parky.ajax :as ajax]
@@ -14,7 +15,7 @@
     [cljs-time.core :as t]
     [bulma-toast :as toast]
     [compact-uuids.core :as uuid]
-    [react-recaptcha :as Recaptcha]
+    ["@hcaptcha/react-hcaptcha" :as Hcaptcha]
     [goog.functions :refer [debounce]])
   (:import goog.History))
 
@@ -420,7 +421,7 @@
        (when (not= :new (:page @session)) [nav-link expanded? "#/" "Home" :home])
        [nav-calendar-dropdown expanded? (:zones @conf)]
        [nav-score-dropdown expanded? (distinct (map first (:zones @conf)))]
-       (when (goog.object/get js/user "is-admin")
+       (when-not js/visitor
          [nav-analytics-dropdown expanded? (:zones @conf)])
        (when (goog.object/get js/user "is-admin")
          [nav-link expanded? "#/settings" "Settings" :settings])]]]))
@@ -460,7 +461,7 @@
   (fn [e]
     (let [current-settings (vec (get-in @settings [:settings :zones zone-id :disabled-days] (repeat 7 false)))
           new-settings (assoc current-settings day (not (nth current-settings day)))]
-      (swap! settings assoc-in [:settings :zones zone-id :disabled-days] new-settings))))
+      (swap! settings assoc-in [:settings :zones zone-id :disabled-days] (if (= new-settings (repeat 7 true)) (repeat 7 false) new-settings)))))
 
 (defn settings-page []
   [:div
@@ -697,7 +698,7 @@
 
 (defn calendar [parking-zone parking-name date]
   [:div.columns
-   [:div.column
+   [:div.column {:style {:padding-left "0.25rem" :padding-right "0.25rem"}}
     [:div.level.calendar-menu
      [:div.level-left
       [:div.level-item
@@ -894,9 +895,9 @@
                               (when-not (empty? (:description data)) [:i.material-icons.md-18 "info"])
                               " "
                               (:email data)
-                              (when (:show-admin @session) [:span " " [:button.button.is-black.admin-button {:on-click (fn []
-                                                                                                                         (admin-delete-info! parking-zone parking-name formatted-date (:email data) #(fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session))))} "Delete"]])]))
-                    (when (:show-admin @session)
+                              (when (and (not= now-status :now-old) (:show-admin @session)) [:span " " [:button.button.is-black.admin-button {:on-click (fn []
+                                                                                                                                                          (admin-delete-info! parking-zone parking-name formatted-date (:email data) #(fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session))))} "Delete"]])]))
+                    (when (and (not= now-status :now-old) (:show-admin @session))
                       [:div.has-text-centered.noselect.info.user-div
                        [:button.button.is-white.admin-button.tooltip.is-tooltip-black {:data-tooltip "Add an event"
                                                                                        :on-click #(swap! session assoc :add-event {:date formatted-date})} "Add"]])
@@ -974,11 +975,11 @@
 
 
 (defn parking [parking-zone parking-name]
-  [:div
+  [:div.column-padding
    [calendar parking-zone parking-name (:current-date @session)]])
 
 (defn home-page []
-  [:div
+  [:div.column-padding
    (r/with-let [email (r/atom "")
                 user-name (r/atom "")
                 token-sent (r/atom false)
@@ -1007,9 +1008,9 @@
                   (when-not (clojure.string/blank? @email)
                             [:div.field
                              [:div.control
-                                                   [:> Recaptcha {:verifyCallback #(reset! token %)
-                                                                  :render "explicit"
-                                                                  :sitekey js/recaptchaSiteKey}]]])]
+                                                   [:> Hcaptcha {:onVerify #(reset! token %)
+                                                                 :render "explicit"
+                                                                 :sitekey js/hcaptchaSiteKey}]]])]
                  [:footer.modal-card-foot
                   [:button.button {:disabled (not @token)
                                    :class (if (and (not (clojure.string/blank? @user-name)) (is-valid-email @email)) :is-success :is-danger)
@@ -1052,23 +1053,23 @@
               [:a.button.is-primary {:style (when (empty? js/openidAzure) {:display :none})
                                      :href (str "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=" js/openidAzure "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fazure&scope=openid%20User.Read&state=" state)} "O365/Azure"]]])])
        [:article.tile.is-child.notification.is-warning
-        [:p.title "Buy a diesel they said"]
-        [:p.subtitle "But I had a clear goal and now I own 5 Teslas. The only diesel I have is my drink"]]]
+        [:p.title (str js/companyName " users")]
+        [:p.subtitle "Can login through any linked service or even just with their email. No passwords required"]]]
       [:div.tile.is-parent
         [:article.tile.is-child.notification.is-primary
-         [:p.title "I love public transport"]
-         [:p.subtitle "I recommend it to all my peers and their families. Trains are the best. I already bought one, but it didn't fit into our house. So, I had to buy another one. Now, I have two trains and I will probably need to build them some shelter or two"]]]]
+         [:p.title "Other users"]
+         [:p.subtitle (str "Visitors, partners,... without " js/companyName " account can use any method to log in. As a visitor you can't see any data, and you can't make reservation requests directly, any of your actions will need to be confirmed by administrator")]]]]
      [:div.tile.is-parent
        [:article.tile.is-child.notification.is-danger
-        [:p.title "We don't need a heliport"]
-        [:p.subtitle "right now. But it is good to have an office on the top floor to ensure that we might build one if needed"]]]]
+        [:p.title "How to use it"]
+        [:p.subtitle "Just log in, select a parking or desk area from calendar menu, find your desired date and click on the box with date. This will make a reservation request. A reservation request will turn into reservation by a smart machine learning algorithm the day before the reservation target or can be done anytime by app admin (your office angel). Check the Rules link in footer of this page if in doubt."]]]]
     [:div.tile.is-parent.is-vertical
      [:article.tile.is-child.notification.is-success
-      [:p.title "I love cycling"]
-      [:p.subtitle "Giro d'Italia is the best. Whenever I watch Eurosport player, my heart is filled with joy and happines. Once the Giro is done, I always look forward to La Vuelta and Spring Classics next year"]]
+      [:p.title "If login does not work"]
+      [:p.subtitle "Make sure you clicked on the activation link in the email you received"]]
      [:article.tile.is-child.notification.is-info
-      [:p.title "When I was a small kid"]
-      [:p.subtitle "I always wanted to park my BMW in the company's garage"]]]]
+      [:p.title "This app"]
+      [:p.subtitle "Helps not only with parkings and desk sharing. It can also help you with spreading info to your team"]]]]
    [:footer.footer
     [:div.content.has-text-centered
      [:p
@@ -1079,46 +1080,47 @@
   (parking (:zone @session) (:parking @session)))
 
 (defn score-page []
-  [:div.columns
-   [:div.column
-    [:div.level.calendar-menu
-     [:div.level-left
-      [:div.level-item
-       [:span
-        [:label.label "Select " (or (:days-look-back @score) 30) " days @ " (:zone @score)]
-        [:div.select
-         [:select {:id :switch-score-days
-                   :name :switch-score-days
-                   :on-change (fn [v]
-                                (swap! score assoc :days-look-back (empty-to-nil (-> v .-target .-value)))
-                                (fetch-score! (:zone @score) (f/unparse-local-date lt/iso-local-date (t/today))))}
-          [:option {:key "Default" :value 30} "Select days from area"]
-          (map (fn [days] [:option {:key (key days) :value (val days)} (str (val days) " (" (key days) ")")]) (get-in @conf [:days-look-back (:zone @score)] {}))]]]]]]
-    [:section.calendar-menu>div.container>div.content
-     [:table.table
-      [:thead
-       [:tr
-        [:th "Pos"]
-        [:th "Name"]
-        [:th "Email"]
-        [:th "Points"]
-        [:th "Records"]
-        [:th.has-background-success "Wins"]
-        [:th.has-background-inactive "Loses"]
-        [:th.has-background-dangerous "GiveUps"]
-        [:th.has-background-grey-lighter "Outs"]]]
-      [:tbody
-       (doall (map-indexed (fn [idx item]
-                             [:tr {:key idx}
-                              [:th (inc idx)]
-                              [:td (:user_name item)]
-                              [:td (:email item)]
-                              [:td (:points item)]
-                              [:td (:count item)]
-                              [:td (:actives item)]
-                              [:td (:inactives item)]
-                              [:td (:blockeds item)]
-                              [:td (:outs item)]]) (:data @score)))]]]]])
+  [:div.column-padding
+   [:div.columns
+    [:div.column
+     [:div.level.calendar-menu
+      [:div.level-left
+       [:div.level-item
+        [:span
+         [:label.label "Select " (or (:days-look-back @score) 30) " days @ " (:zone @score)]
+         [:div.select
+          [:select {:id :switch-score-days
+                    :name :switch-score-days
+                    :on-change (fn [v]
+                                 (swap! score assoc :days-look-back (empty-to-nil (-> v .-target .-value)))
+                                 (fetch-score! (:zone @score) (f/unparse-local-date lt/iso-local-date (t/today))))}
+           [:option {:key "Default" :value 30} "Select days from area"]
+           (map (fn [days] [:option {:key (key days) :value (val days)} (str (val days) " (" (key days) ")")]) (get-in @conf [:days-look-back (:zone @score)] {}))]]]]]]
+     [:section.calendar-menu>div.container>div.content
+      [:table.table
+       [:thead
+        [:tr
+         [:th "Pos"]
+         [:th "Name"]
+         [:th "Email"]
+         [:th "Points"]
+         [:th "Records"]
+         [:th.has-background-success "Wins"]
+         [:th.has-background-inactive "Loses"]
+         [:th.has-background-dangerous "GiveUps"]
+         [:th.has-background-grey-lighter "Outs"]]]
+       [:tbody
+        (doall (map-indexed (fn [idx item]
+                              [:tr {:key idx}
+                               [:th (inc idx)]
+                               [:td (:user_name item)]
+                               [:td (:email item)]
+                               [:td (:points item)]
+                               [:td (:count item)]
+                               [:td (:actives item)]
+                               [:td (:inactives item)]
+                               [:td (:blockeds item)]
+                               [:td (:outs item)]]) (:data @score)))]]]]]])
 
 (defn show-chart
   [config-atom]
@@ -1155,23 +1157,24 @@
                             [:div {:class "ct-chart ct-minor-seventh"}])}))
 
 (defn analytics-page []
-  [:div.columns
-   [:div.column
-    [:div.level.calendar-menu
-     [:div.level-left
-      [:div.level-item
-       [:div.buttons.has-addons
-        [:span.button {:on-click #(change-date-analytics t/minus 1)} [:i.material-icons "chevron_left"]]
-        [:span.button {:on-click #(change-date-to-today-analytics)} "This month"]
-        [:span.button {:on-click #(change-date-analytics t/plus 1)} [:i.material-icons "chevron_right"]]]]]
-     [:div.level-right
-      [:span "Since " (f/unparse-local-date lt/iso-local-date (:current-date @analytics))]]
-     #_[:div.level-right
+  [:div.column-padding
+   [:div.columns
+    [:div.column
+     [:div.level.calendar-menu
+      [:div.level-left
+       [:div.level-item
         [:div.buttons.has-addons
-         [:span.button {:on-click #(js/window.open (str "/excel/" (:zone @session) "/" (:parking @session) "/" (f/unparse-local-date lt/iso-local-date (or (:current-date @analytics) (t/first-day-of-the-month- (t/now))))) "_blank")} [:i.material-icons "save_alt"]]]]]
-    [:section.calendar-menu>div.container>div.content
-     (when (:data @analytics)
-       [chart-component analytics])]]])
+         [:span.button {:on-click #(change-date-analytics t/minus 1)} [:i.material-icons "chevron_left"]]
+         [:span.button {:on-click #(change-date-to-today-analytics)} "This month"]
+         [:span.button {:on-click #(change-date-analytics t/plus 1)} [:i.material-icons "chevron_right"]]]]]
+      [:div.level-right
+       [:span "Since " (f/unparse-local-date lt/iso-local-date (:current-date @analytics))]]
+      #_[:div.level-right
+         [:div.buttons.has-addons
+          [:span.button {:on-click #(js/window.open (str "/excel/" (:zone @session) "/" (:parking @session) "/" (f/unparse-local-date lt/iso-local-date (or (:current-date @analytics) (t/first-day-of-the-month- (t/now))))) "_blank")} [:i.material-icons "save_alt"]]]]]
+     [:section.calendar-menu>div.container>div.content
+      (when (:data @analytics)
+        [chart-component analytics])]]]])
 
 (defn new-page []
   (r/with-let [name (r/atom (uuid/str (random-uuid)))
@@ -1229,9 +1232,9 @@
       [:p.help "Once you'll create an app, we'll send you an activation email where you need to follow an activation link before first use of the app itself."]]
      (when @show-captcha [:div.field
                           [:div.control
-                           [:> Recaptcha {:verifyCallback #(reset! token %)
-                                          :render "explicit"
-                                          :sitekey js/recaptchaSiteKey}]]])
+                           [:> Hcaptcha {:onVerify #(reset! token %)
+                                         :render "explicit"
+                                         :sitekey js/hcaptchaSiteKey}]]])
      [:div.field.is-grouped
       [:div.control
        [:button.button.is-link {:disabled (when (or (not @checked) (not (is-valid-email @email)) (not @token) (is-name-invalid @name) (not= @email @email2)) :disabled)
@@ -1328,8 +1331,8 @@
 ;; -------------------------
 ;; Initialize app
 (defn ^:dev/after-load mount-components []
-  (r/render [#'navbar] (.getElementById js/document "navbar"))
-  (r/render [#'page] (.getElementById js/document "app")))
+  (d/render [#'navbar] (.getElementById js/document "navbar"))
+  (d/render [#'page] (.getElementById js/document "app")))
 
 (defn init! []
   (ajax/load-interceptors!)

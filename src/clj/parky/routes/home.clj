@@ -542,7 +542,7 @@
                                                                    date (get-in req [:parameters :path :date])]
                                                                (if (and (:user *identity*) (:tenant *identity*))
                                                                  (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})]
-                                                                   (if (or (is-root (:email (:user *identity*))) #{(:email tenant) (:admin tenant)} (:email (:user *identity*)))
+                                                                   (if (and (:user *identity*) (not (:visitor *identity*)))
                                                                      {:status 200
                                                                       :body (get-analytics (:id tenant) parking-zone parking date)}
                                                                      {:status 403}))
@@ -634,10 +634,10 @@
                               (let [token (get-in req [:parameters :query :token])
                                     email (get-in req [:parameters :query :email])
                                     name (get-in req [:parameters :query :name])
-                                    response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret (get-in env [:recaptcha :secretkey])
-                                                                                                                            :response token}
-                                                                                                             :content-type :json
-                                                                                                             :as :json})
+                                         response (client/post "https://hcaptcha.com/siteverify" {:query-params {:secret (get-in env [:hcaptcha :secretkey])
+                                                                                                                 :response token}
+                                                                                                  :content-type :json
+                                                                                                  :as :json})
                                     is-success (get-in response [:body :success])]
                                 (if (and is-success (< (+ 7 (count (get env :multitenant-domain))) (count name))) ;; 6.8.3 ;; smthng.holdybot.com
                                   (do
@@ -673,10 +673,10 @@
                                             user-name (get-in req [:parameters :query :user-name])
                                             raw-session-state (get-in req [:parameters :query :state])
                                                               session-state (if raw-session-state (jwt/unsign raw-session-state parky.middleware/jwt-secret) nil)
-                                            response (client/post "https://www.google.com/recaptcha/api/siteverify" {:query-params {:secret (get-in env [:recaptcha :secretkey])
-                                                                                                                                    :response token}
-                                                                                                                     :content-type :json
-                                                                                                                     :as :json})
+                                            response (client/post "https://hcaptcha.com/siteverify" {:query-params {:secret (get-in env [:hcaptcha :secretkey])
+                                                                                                                    :response token}
+                                                                                                     :content-type :json
+                                                                                                     :as :json})
                                             is-success (get-in response [:body :success])]
                                         (if (and session-state is-success)
                                           (do

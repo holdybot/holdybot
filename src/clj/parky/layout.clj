@@ -32,8 +32,9 @@
           :context-url *context-url*
           :session-state session-state
           :app-name (get env :app-name "Holdy")
+          :company-name (get env :company-name "Company")
           :multitenant-domain (get env :multitenant-domain)
-          :recaptcha-site-key (get-in env [:recaptcha :sitekey])
+          :hcaptcha-site-key (get-in env [:hcaptcha :sitekey])
           :openid-fb (get-in env [:open-id-connect :facebook :api-key])
           :openid-google (get-in env [:open-id-connect :google :api-key])
           :openid-linkedin (get-in env [:open-id-connect :linkedin :api-key])

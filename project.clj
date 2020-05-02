@@ -13,7 +13,7 @@
                  [com.github.scribejava/scribejava-apis "6.7.0"]
                  [com.github.scribejava/scribejava-core "6.7.0"]
                  [com.github.scribejava/scribejava-httpclient-apache "6.7.0"]
-                 [com.google.javascript/closure-compiler-unshaded "v20191027" :scope "provided"]
+                 [com.google.javascript/closure-compiler-unshaded "v20200406" :scope "provided"]
                  [com.google.protobuf/protobuf-java "3.11.1"]
                  [compact-uuids "0.2.0"]
                  [conman "0.8.4"]
@@ -31,7 +31,7 @@
                  [mount "0.1.16"]
                  [nrepl "0.6.0"]
                  [org.clojure/clojure "1.10.1"]
-                 [org.clojure/clojurescript "1.10.597" :scope "provided"
+                 [org.clojure/clojurescript "1.10.741" :scope "provided"
                   :exclusions [com.google.javascript/closure-compiler-unshaded
                                org.clojure/google-closure-library
                                org.clojure/google-closure-library-third-party]]
@@ -45,12 +45,12 @@
                  [org.webjars.npm/material-icons "0.3.0"]
                  [org.webjars/webjars-locator "0.36"]
                  [org.webjars/webjars-locator-jboss-vfs "0.1.0"]
-                 [reagent "0.9.0-rc4"]
+                 [reagent "0.10.0"]
                  [ring-webjars "0.2.0"]
                  [ring/ring-core "1.7.1"]
                  [ring/ring-defaults "0.3.2"]
                  [selmer "1.12.12"]
-                 [thheller/shadow-cljs "2.8.83" :scope "provided"]]
+                 [thheller/shadow-cljs "2.8.109" :scope "provided"]]
 
   :min-lein-version "2.0.0"
   
@@ -78,11 +78,11 @@
      :output-to "target/test/test.js"
      :autorun true}}}
   
-  :npm-deps [[shadow-cljs "2.8.83"]
-             [react "16.9.0"]
-             [react-dom "16.9.0"]
+  :npm-deps [[shadow-cljs "2.8.109"]
+             [react "16.13.0"]
+             [react-dom "16.13.0"]
              [bulma-toast "1.5.1"]
-             [react-recaptcha "2.3.10"]]
+             ["@hcaptcha/react-hcaptcha" "0.1.8"]]
 
   :profiles
   {:uberjar {:omit-source true
