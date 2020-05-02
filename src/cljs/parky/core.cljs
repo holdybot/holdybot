@@ -30,7 +30,8 @@
                           :show-spinner false
                           :show-admin false
                           :show-confirm nil
-                          :types nil}))
+                          :types nil
+                          :created false}))
 (defonce conf (r/atom {}))
 (defonce score (r/atom {:data nil
                         :days-look-back 30}))
@@ -980,6 +981,17 @@
 
 (defn home-page []
   [:div.column-padding
+   [:div.modal {:class (when (:created @session) :is-active)}
+    [:div.modal-background
+     [:div.modal-card
+      [:header.modal-card-head
+       [:p.modal-card-title "Just Created"]]
+      [:section.modal-card-body "You must activate the app through the link we just sent on your email, otherwise you will not be able to log in."]
+      [:footer.modal-card-foot
+       [:button.button {:class :is-success
+                        :on-click (fn [_]
+                                    (swap! session assoc :created nil))} "Okay, I did it"]]]]]
+
    (r/with-let [email (r/atom "")
                 user-name (r/atom "")
                 token-sent (r/atom false)
@@ -1320,12 +1332,7 @@
            (swap! score assoc :zone nil)
            (swap! score assoc :parking nil)
            (when (and (= :home (:page @session)) (= (.-token event) "created"))
-             (toast/toast (clj->js {:message "Created, activate your account by instructions from the email we just sent you"
-                                    :type "is-success"
-                                    :position "bottom-right"
-                                    :duration 30000
-                                    :dismissible true
-                                    :animate { :in "fadeIn", :out "fadeOut"}})))))))
+             (swap! session assoc :created true))))))
     (.setEnabled true)))
 
 ;; -------------------------
