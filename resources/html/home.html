@@ -30,8 +30,9 @@
         var visitor = !!{{visitor}};
         var sessionState = "{{session-state}}";
         var appName = "{{app-name}}";
+        var companyName = "{{company-name}}";
         var multitenantDomain = "{{multitenant-domain}}";
-        var recaptchaSiteKey = "{{recaptcha-site-key}}";
+        var hcaptchaSiteKey = "{{hcaptcha-site-key}}";
         var openidFb = "{{openid-fb}}";
         var openidLinkedIn = "{{openid-linkedin}}";
         var openidGoogle = "{{openid-google}}";
@@ -39,7 +40,7 @@
         document.title = appName;
     </script>
     <script src="/js/app.js?{{timestamp}}" type="text/javascript"></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.hcaptcha.com/1/api.js" async defer></script>
     <script src="/js/chartist.min.js"></script>
   </body>
 </html>

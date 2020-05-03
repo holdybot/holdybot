@@ -241,6 +241,11 @@ body {
     stroke: hsl(48, 100%, 67%) !important;
 }
 
+.column-padding {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
 @media (prefers-color-scheme: dark) {
 
     html,

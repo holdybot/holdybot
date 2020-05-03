@@ -43,6 +43,7 @@ Create a dev-config.edn in project's root folder
      :nrepl-port 7000
      :database-url "jdbc:postgresql://localhost/holdybot?user=holdybot&password=secretPassw0rd"
      :app-name "Holdybot"
+     ;; :multitenant-domain "my-multi-tenant-domain.com"
      :jwt-secret "abcdertzujfgasgfretgfdretzhgfrtzh234535643564gfdgfdgd" ;; change me please!
      :root-users #{"tomas@example.com" "tereza@example.com"}
      :smtp {:transport {:host "smpt.example.com"}
@@ -50,7 +51,7 @@ Create a dev-config.edn in project's root folder
                         ;;:pass "password"
                         ;;:port 587}
             :from "Holdybot <Holdybot@example.com>"}
-     :recaptcha {:sitekey "235435632563563531525_DFGSDSGHDSGH"    ;; recaptcha v2, obtain in google cloud console for free
+     :hcaptcha  {:sitekey "235435632563563531525_DFGSDSGHDSGH"    ;; hcaptcha, obtain in their ui
                  :secretkey "235435632563563531525_sfasfasdfasfd"}
      :open-id-connect {:azure {:api-key "24325-1243123-12313-12313" ;; generate this in azure dashboard for free
                                :api-secret "SDFSHU6Z5TRTHU65"}
@@ -78,7 +79,7 @@ On first run, you might need to create a db schema in your postgres db, run migr
 Run this sql
         INSERT INTO tenant (host, email, activated) VALUES ('localhost:3000', 'youremail@example.com', true); 
 
-Open http://localhost:3000 in your browser and if you have configured recaptcha v2 and smtp, you should be able to login through email token. If you have configured openid connect (check wiki), it should work for you.
+Open http://localhost:3000 in your browser and if you have configured hcaptcha and smtp, you should be able to login through email token. If you have configured openid connect (check wiki), it should work for you.
 
 ## How to run this?
 
@@ -127,7 +128,9 @@ Example apache virtual host (make sure to enable mod_proxy and mod_ssl)
             SSLCertificateFile    /etc/apache2/ssl/my-greatest-parking-app-for-my-best-company.crt
             SSLCertificateKeyFile /etc/apache2/ssl/my-greatest-parking-app-for-my-best-company.key
     
-            SSLProxyEngine On
+            #uncomment me when using multitenant mode
+            #ProxyPreserveHost On
+    
             ProxyPass / http://localhost:3000/
     
             AddOutputFilterByType DEFLATE text/plain
@@ -146,7 +149,7 @@ Resulting sql might be like this.
 
     INSERT INTO tenant (host, email, activated) VALUES ('my-greatest-parking-app-for-my-best-company.com', 'myemail@example.com', true); 
     
-Since now, you should be able to log in to the app with your email if you have correctly configured the smtp and recaptcha v2.
+Since now, you should be able to log in to the app with your email if you have correctly configured the smtp and hcaptcha.
 There is an option to configure open id connect login, which is the preferred way of using it. There are currently available providers for Facebook, Azure (Microsot/Office365), Google and Linked in login.
 
 Check the wiki 

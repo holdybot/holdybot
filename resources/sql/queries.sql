@@ -216,4 +216,4 @@ ON CONFLICT (host, email)
 select * from email_token where host = :host and email = :email and token = :token and created >= TIMESTAMP 'yesterday'
 
 -- :name delete-email-token! :! :1
-delete from email_token where created < TIMESTAMP 'yesterday';
+delete from email_token where created < TIMESTAMP 'yesterday'
