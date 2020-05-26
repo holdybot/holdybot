@@ -253,7 +253,7 @@
     (doseq-indexed idx [zone (:zones settings)]
                    (reset! s (assoc-in @s [:zones idx :admins] (into #{} (filter seq (clojure.string/split (get-in zone [:admins] "") #"[\s,;]")))))
                    (doseq-indexed i [slot (get-in @s [:zones idx :slots])]
-                                  (reset! s (assoc-in @s [:zones idx :slots i :types] (into #{} (filter seq (clojure.string/split (get-in slot [:types] "") #"[\s,;]")))))))
+                                  (reset! s (assoc-in @s [:zones idx :slots i :types] (into #{} (filter seq (clojure.string/split (or (get-in slot [:types]) "") #"[\s,;]")))))))
     (db/set-settings {:tenant_id (get-in *identity* [:tenant :id])
                       :bang_seconds_utc (- (+ (* 3600 (Integer/valueOf (get settings :bang-hour 16))) (* 60 (Integer/valueOf (get settings :bang-minute 0)))) (.getTotalSeconds (.getOffset (.getRules (ZoneId/of (get settings :timezone "Europe/Berlin"))) (LocalDateTime/now (ZoneId/of "UTC")))))
                       :admin (:admin settings)

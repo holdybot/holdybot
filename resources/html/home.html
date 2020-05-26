@@ -28,6 +28,7 @@
         var csrfToken = "{{csrf-token}}";
         var user = {{user|json|safe}};
         var visitor = !!{{visitor}};
+        var subtenants = {{subtenants|json|safe}};
         var sessionState = "{{session-state}}";
         var appName = "{{app-name}}";
         var companyName = "{{company-name}}";

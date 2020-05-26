@@ -55,27 +55,27 @@
 (defn- notification-activated [email date parking-zone parking-name slot-name]
   (notification email
                 (str "You have won a space " slot-name " in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Congratulations! Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
+                (str "Congratulations! Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))))
 
 (defn- notification-deactivated [email date parking-zone parking-name]
   (notification email
                 (str "Sorry, there is no free space for your request in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
+                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))))
 
 (defn notification-deactivated-by-admin [email date parking-zone parking-name]
   (notification email
                 (str "Sorry, admin has just cancelled your space in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
+                (str "Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))))
 
 (defn notification-gave-up [email date parking-zone parking-name]
   (notification email
                 (str "Someone has given up their space in " parking-zone " " parking-name " on " (jt/format "yyyy-MM-dd" date))
-                (str "If you still need the place, please make a reservation asap. If the space is still free, you will get it immediately. Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
+                (str "If you still need the place, please make a reservation asap. If the space is still free, you will get it immediately. Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))))
 
 (defn notification-visitor-request [admin-email user-name email date parking-zone parking-name]
   (notification admin-email
                 (str "Dear admin, visitor " user-name " " email " asks for space in " parking-zone " " parking-name)
-                (str "Please check their request for " date ". Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)))
+                (str "Please check their request for " date ". Your " (get env :app-name "Holdy") " at https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))))
 
 (defn get-slots [date zone]
   (let [taken-slot-names (into #{} (map :slot_name (db/get-taken-slots {:tenant_id    (get-in *identity* [:tenant :id])
@@ -139,7 +139,7 @@
    "potentialAction" [{"@type" "OpenUri"
                        "name" (str "Show in " (get env :app-name "Holdy"))
                        "targets" [{"os" "default"
-                                   "uri" (str "https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)}]}]
+                                   "uri" (str "https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))}]}]
    "sections" [{"facts" (map (fn [[email slot-name user-name]]
                                {:name slot-name
                                 :value user-name}) winners)
@@ -151,10 +151,10 @@
 (defn slack-msg [parking-zone parking-name date winners]
   {"text" (str "*Congratulations!*\t" (get env :app-name "Holdy") " winners" date "\n\n" (clojure.string/join (map (fn [[email slot-name user-name]]
                                                                                                                        (str "\n*" slot-name "*\t" user-name)) winners)))
-   "attachments" [{"fallback" (str "Show " (get env :app-name "Holdy") " https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)
+   "attachments" [{"fallback" (str "Show " (get env :app-name "Holdy") " https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))
                    "actions" [{"type" "button"
                                "text" (str "Open in "(get env :app-name "Holdy"))
-                               "url" (str "https://" (get-in *identity* [:tenant :host]) "/#/calendar/" parking-zone "/" parking-name)}]}]})
+                               "url" (str "https://" (get-in *identity* [:tenant :host]) "/#/calendar/" (ring.util.codec/url-encode parking-zone) "/" (ring.util.codec/url-encode parking-name))}]}]})
 
 (defn notify-winners [zone date winners]
   (log/debug "notify" winners)

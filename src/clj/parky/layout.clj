@@ -31,6 +31,7 @@
           :visitor (or (:visitor *identity*) false) ;; that was true before, can be changed once auth done properly
           :context-url *context-url*
           :session-state session-state
+          :subtenants (get env :subtenants)
           :app-name (get env :app-name "Holdy")
           :company-name (get env :company-name "Company")
           :multitenant-domain (get env :multitenant-domain)

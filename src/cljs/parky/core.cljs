@@ -395,8 +395,13 @@
   (r/with-let [expanded? (r/atom false)]
     [:nav.navbar.is-info>div.container
      [:div.navbar-brand
-      [:a.navbar-item.has-background-warning.has-text-black {:href "/" :style {:font-weight :bold
-                                                                               :padding "0.5rem"}} js/appName]
+      [:a.navbar-item.has-background-warning.has-text-black {:href "/"
+                                                             :style {:font-weight :bold
+                                                                     :padding "0.5rem"}} js/appName]
+      (when js/subtenants
+        (doall (map (fn [e] [:a.navbar-item {:class (when (= js/window.location.host (val e)) :is-active)
+                                             :href (str "//" (val e)) :style {:font-weight :bold
+                                                                              :padding "0.5rem"}} (key e)]) (js->clj js/subtenants))))
       (when (and (= :calendar (:page @session)) (or (:is-admin @conf) (contains? (get-in @conf [:is-admin-in (:zone @session)]) (:parking @session))))
          [:a.navbar-item
            [:span.button {:class    (if (:show-admin @session) :is-warning :is-info)
