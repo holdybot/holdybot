@@ -493,7 +493,7 @@
                                 (str "https://" (if (clojure.string/ends-with? (:host session-state) (str "." (get env :multitenant-domain)))
                                                   (if (clojure.string/starts-with? (:host session-state) "local.")
                                                     (clojure.string/replace-first (clojure.string/replace-first (:host session-state) #":\d+" "") #"local\." "login.")
-                                                    (clojure.string/replace-first (:host session-state) #"\w+\." "login."))
+                                                    (clojure.string/replace-first (:host session-state) #"[A-Za-z0-9-]*\." "login."))
                                                   (:host session-state))))
 
             user-info (user-info-fn code callback-location)]

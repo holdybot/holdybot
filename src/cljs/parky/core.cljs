@@ -1054,7 +1054,7 @@
           [:a.button.is-danger {:on-click #(logout!)} "Logout"]]
          [:article.tile.is-child.notification
           (let [redirect-uri (js/encodeURIComponent (if (clojure.string/ends-with? js/contextUrl (str "." js/multitenantDomain))
-                                                      (clojure.string/replace-first (clojure.string/replace-first (if (.startsWith js/contextUrl "http://local.") (clojure.string/replace-first js/contextUrl #":\d+" "") js/contextUrl) #"http://local\." "https://login.") #"https://\w+\." "https://login.")
+                                                      (clojure.string/replace-first (clojure.string/replace-first (if (.startsWith js/contextUrl "http://local.") (clojure.string/replace-first js/contextUrl #":\d+" "") js/contextUrl) #"http://local\." "https://login.") #"https://[A-Za-z0-9-]*\." "https://login.")
                                                       js/contextUrl))
                 state (js/encodeURIComponent js/sessionState)]
             [:div
