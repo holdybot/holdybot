@@ -50,7 +50,7 @@
                  [ring/ring-core "1.7.1"]
                  [ring/ring-defaults "0.3.2"]
                  [selmer "1.12.12"]
-                 [thheller/shadow-cljs "2.8.109" :scope "provided"]]
+                 [thheller/shadow-cljs "2.11.5" :scope "provided"]]
 
   :min-lein-version "2.0.0"
   
@@ -78,7 +78,7 @@
      :output-to "target/test/test.js"
      :autorun true}}}
   
-  :npm-deps [[shadow-cljs "2.8.109"]
+  :npm-deps [[shadow-cljs "2.11.5"]
              [react "16.13.0"]
              [react-dom "16.13.0"]
              [bulma-toast "1.5.1"]
