@@ -60,7 +60,7 @@
   (let [loaded-tenant (if (nil? (:email (:tenant *identity*))) (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])}))]
     (or
       (is-root email)
-      (#{(:email loaded-tenant) (:admin loaded-tenant)} email)
+      ((set (list (:email loaded-tenant) (:admin loaded-tenant))) email)
       (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
         (contains? (get-in loaded-zone [:admins]) email)))))
 
@@ -213,7 +213,7 @@
   (let [tenant (db/get-whole-tenant-by-id {:id (get-in *identity* [:tenant :id])})
         settings (edn/read-string (:settings tenant))]
     {:bang-seconds-utc (:bang_seconds_utc tenant)
-     :is-admin (or (is-root (get-in *identity* [:user :email])) (some? (#{(:email tenant) (:admin tenant)} (get-in *identity* [:user :email]))))
+     :is-admin (or (is-root (get-in *identity* [:user :email])) (some? ((set (list (:email tenant) (:admin tenant))) (get-in *identity* [:user :email]))))
      :is-admin-in (admin-in (:zones settings) (get-in *identity* [:user :email]))
      :zones (sort-by #(str (first %) (second %)) (map (fn [zone] [(:zone zone) (:name zone) (:disabled-days zone)]) (:zones settings)))
      :disabled-days (create-disabled-days (:zones settings))
@@ -463,7 +463,7 @@
   (let [tenant (db/get-tenant-by-host {:host (:host session-state)})
         is-http (or (= "localhost:3000" (:host session-state)) (clojure.string/starts-with? (:host session-state) "local."))
         location (if is-http (str "http://" (:host session-state)) (str "https://" (:host session-state)))
-        is-admin (or (is-root (:email user-info)) (some? (#{(:email tenant) (:admin tenant)} (:email user-info))))
+        is-admin (or (is-root (:email user-info)) (some? ((set (list (:email tenant) (:admin tenant))) (:email user-info))))
         settings (find-settings (:id tenant))
         is-user (or
                   (some #(clojure.string/ends-with? (:email user-info) %) (into #{} (filter seq (clojure.string/split (or (get-in settings [:allowed-email-suffixes]) "") #"[\s,;]"))))
@@ -586,7 +586,7 @@
    ["/settings" {:get  {:handler (fn [req]
                                    (if (and (:user *identity*) (:tenant *identity*))
                                      (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})]
-                                       (if (or (is-root (:email (:user *identity*))) #{(:email tenant) (:admin tenant)} (:email (:user *identity*)))
+                                       (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
                                          {:status 200
                                           :body   (get-settings)}
                                          {:status 403}))
@@ -595,7 +595,7 @@
                                       (if (and (:user *identity*) (:tenant *identity*))
                                         (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})
                                               settings (get-in req [:body-params :settings])]
-                                             (if (or (is-root (:email (:user *identity*))) (#{(:email tenant) (:admin tenant)} (:email (:user *identity*))))
+                                             (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
                                                (do
                                                  (set-settings settings)
                                                  {:status 200})
@@ -943,7 +943,7 @@
    ["/logout-all-users" {:post {:handler (fn [_]
                                            (if (and (:user *identity*) (:tenant *identity*))
                                              (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})]
-                                               (if (or (is-root (:email (:user *identity*))) (#{(:email tenant) (:admin tenant)} (:email (:user *identity*))))
+                                               (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
                                                  (do
                                                    (db/update-jwt-valid-after {:tenant_id (get-in *identity* [:tenant :id])
                                                                                :jwt_valid_after (System/currentTimeMillis)})
