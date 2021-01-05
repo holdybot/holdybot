@@ -15,9 +15,14 @@ Check wiki for some docs https://github.com/holdybot/holdybot/wiki
 
 # Conferences
 
+Clojure/north 2020 
+ 
+https://www.youtube.com/watch?v=3dE_lQ2qPuE
+
 Talk at Barcamp 2019 Hradec Králové - Czech only 
 
 https://www.youtube.com/watch?v=VgORnv1sMLk
+
  
 # Tech
 The app skeleton was generated with Luminus version "3.34", uses Postgres to store the data and is written in 
