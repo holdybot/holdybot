@@ -234,6 +234,22 @@
   `(doseq [[~index-sym ~item-sym] (map list (range) ~coll)]
      ~@body))
 
+(defn get-greenlist []
+  (let [greenlist (db/get-greenlist {:tenant_id (get-in *identity* [:tenant :id])})]
+    {:data greenlist}))
+
+(defn add-greenlist-record! [record]
+  (db/add-greenlist-record! {:tenant_id (get-in *identity* [:tenant :id])
+                             :valid_from (:valid_from record)
+                             :valid_to (:valid_to record)
+                             :email (:email record)
+                             :description (:description record)
+                             :created_by (get-in *identity* [:user :email])}))
+
+(defn delete-greenlist-record! [id]
+  (db/delete-greenlist-record! {:tenant_id (get-in *identity* [:tenant :id])
+                                :id id}))
+
 (defn get-settings []
   (let [settings (db/get-settings {:tenant_id (get-in *identity* [:tenant :id])})]
     (if (:settings settings)
@@ -300,14 +316,14 @@
                                        :parking_name (:name zone)
                                        :on_behalf_of (get user-info :on-behalf-of false)
                                        :parking_type (:parking-type user-info)}]
-                             (if (:visitor *identity*)
-                               (do
-                                 (db/add-visitor-parking! user)
-                                 (doseq [admin (get-in zone [:admins])]
-                                   (computation/notification-visitor-request admin (:user-name user-info) (:email user-info) date (:zone zone) (:name zone))))
-                               (do
-                                 (db/add-parking! user)
-                                 (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
+                             (let [loaded-zone (if (nil? (:slots zone)) (find-zone-settings (get-in *identity* [:tenant :id]) (:zone zone) (:name zone)) zone)]
+                               (if (or (:visitor *identity*) (and (:disable-auto-assignment loaded-zone) (empty? (db/get-valid-greenlist-records user))))
+                                 (do
+                                   (db/add-visitor-parking! user)
+                                   (doseq [admin (get-in zone [:admins])]
+                                     (computation/notification-visitor-request admin (:user-name user-info) (:email user-info) date (:zone zone) (:name zone))))
+                                 (do
+                                   (db/add-parking! user)
                                    (when (computation/is-after-bang-hour? (jt/minus date (jt/days 1)) loaded-zone)
                                      (computation/activate-winners zone date false [user] (computation/get-slots date loaded-zone) true false))))))))
 
@@ -582,6 +598,38 @@
                                 {:status 200
                                  :body (get-user-tenant-conf)}
                                 {:status (if (:user *identity*) 403 401)}))}}]
+
+   ["/greenlist" {:get  {:handler (fn [req]
+                                    (if (and (:user *identity*) (:tenant *identity*))
+                                      (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})]
+                                        (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
+                                          {:status 200
+                                           :body   (get-greenlist)}
+                                          {:status 403}))
+                                      {:status 401}))}}]
+
+   ["/greenlist/add" {:post {:handler (fn [req]
+                                        (if (and (:user *identity*) (:tenant *identity*))
+                                          (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})
+                                                record (get-in req [:body-params])]
+                                            (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
+                                              (do
+                                                (add-greenlist-record! record)
+                                                {:status 200})
+                                              {:status 403}))
+                                          {:status 401}))}}]
+
+   ["/greenlist/delete" {:post {:handler (fn [req]
+                                           (if (and (:user *identity*) (:tenant *identity*))
+                                             (let [tenant (db/get-tenant-by-id {:id (get-in *identity* [:tenant :id])})
+                                                   id (get-in req [:body-params :id])]
+                                               (if (or (is-root (:email (:user *identity*))) ((set (list (:email tenant) (:admin tenant))) (:email (:user *identity*))))
+                                                 (do
+                                                   (delete-greenlist-record! id)
+                                                   {:status 200})
+                                                 {:status 403}))
+                                             {:status 401}))}}]
+
 
    ["/settings" {:get  {:handler (fn [req]
                                    (if (and (:user *identity*) (:tenant *identity*))

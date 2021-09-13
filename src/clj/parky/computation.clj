@@ -197,15 +197,24 @@
 (defn- compute [zone date slots-count]
   (log/info "Start Computing" (:zone zone) (:name zone) date)
   (conman/with-transaction [parky.db.core/*db*]
-                           (let [pendings (db/get-pending-parkings-by-day {:tenant_id (get-in *identity* [:tenant :id])
-                                                                           :parking_day date
-                                                                           :parking_zone (:zone zone)
-                                                                           :parking_name (:name zone)})]
+                           (let [pendings (if (:disable-auto-assignment zone)
+                                            (db/get-pending-parkings-by-day-filtered-by-greenlist {:tenant_id (get-in *identity* [:tenant :id])
+                                                                                                   :parking_day date
+                                                                                                   :parking_zone (:zone zone)
+                                                                                                   :parking_name (:name zone)})
+                                            (db/get-pending-parkings-by-day {:tenant_id (get-in *identity* [:tenant :id])
+                                                                             :parking_day date
+                                                                             :parking_zone (:zone zone)
+                                                                             :parking_name (:name zone)}))]
                              (when (seq pendings)
                                (let [more-users-than-slots? (> (count pendings) slots-count)
                                      winners (compute-winners pendings zone date slots-count)]
                                  (activate-winners zone date more-users-than-slots? winners (get-slots date zone) true false)))))
   (log/info "End Computing" (:zone zone) (:name zone) date))
+
+; fixme copy/paste
+(defn- generate-filtered-days [from days filter-fn]
+  (vec (take days (remove nil? (remove #(filter-fn %) (jt/iterate jt/plus from (jt/days 1)))))))
 
 (defn compute-now []
   (try
@@ -219,7 +228,24 @@
           (binding [*identity* {:tenant (merge tenant {:settings settings})}]
             (doseq [zone (:zones settings)]
               (let [slots-count (count (get-slots date zone))]
-                (compute zone date slots-count)))
+                (compute zone date slots-count)
+                (doseq [slot (:slots zone)] ; fixme perf
+                  (when (:out-by-default slot)
+                    (when (get-in slot [:owner])
+                      (let [filtered-days (into #{} (remove nil? (map-indexed #(when %2 (inc %1)) (get zone :disabled-days (repeat 7 false)))))
+                            target-date (first (generate-filtered-days (jt/adjust date jt/plus (jt/days 1)) 1 #(filtered-days (.getValue (jt/day-of-week %)))))
+                            is-active-day (= target-date (jt/adjust date jt/plus (jt/days 1)))]
+                        (when is-active-day
+                          (db/set-out-by-default! {:tenant_id (get-in *identity* [:tenant :id])
+                                                   :parking_day target-date
+                                                   :parking_zone (:zone zone)
+                                                   :parking_name (:name zone)
+                                                   :email (get slot :owner)
+                                                   :user_name (or (get slot :name) (get slot :owner))})))))))
+              (db/delete-old-outs! {:tenant_id (get-in *identity* [:tenant :id])
+                                    :parking_day date
+                                    :parking_zone (:zone zone)
+                                    :parking_name (:name zone)}))
             (db/update-tenant-dates! {:computed_date date
                                       :bang_seconds_utc (- (+ (* 3600 (Integer/valueOf (get settings :bang-hour 16))) (* 60 (Integer/valueOf (get settings :bang-minute 0)))) (.getTotalSeconds (.getOffset (.getRules (ZoneId/of (get settings :timezone "Europe/Berlin"))) (LocalDateTime/now (ZoneId/of "UTC")))))
                                       :tenant_id (:id tenant)})))))

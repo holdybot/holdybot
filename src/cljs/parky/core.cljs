@@ -40,6 +40,8 @@
 (defonce settings (r/atom {:timezones []
                            :settings []}))
 
+(defonce greenlist (r/atom {:date nil}))
+
 (defn empty-to-nil [val]
   (if (clojure.string/blank? val) nil val)) ;; TODO: how to fix that?
 
@@ -98,6 +100,26 @@
   (swap! session assoc-in [:data :days] (merge (get-in @session [:data :days]) (:days data)))
   (swap! session assoc-in [:data :own-default] (:own-default data)))
 
+(defn add-to-greenlist! [email valid_from valid_to description callback]
+  (show-spinner)
+  (POST (str "/greenlist/add") {:params {:email email
+                                         :valid_from valid_from
+                                         :valid_to valid_to
+                                         :description description}
+                                :handler default-handler
+                                :error-handler error-handler
+                                :finally (fn []
+                                           (hide-spinner)
+                                           (callback))}))
+
+(defn delete-from-greenlist! [id callback]
+  (show-spinner)
+  (POST (str "/greenlist/delete") {:params {:id id}
+                                   :handler default-handler
+                                   :error-handler error-handler
+                                   :finally (fn []
+                                              (hide-spinner)
+                                              (callback))}))
 
 (defn admin-add-info! [parking-zone parking-name date event-name description callback]
   (show-spinner)
@@ -236,6 +258,17 @@
                                                                                                                                                             (swap! session assoc :current-date date))
                                                                                                                                                  :error-handler error-handler
                                                                                                                                                  :finally hide-spinner})))
+
+(defn fetch-greenlist! []
+  (when @current-fetch-request
+    (.abort @current-fetch-request))
+  (show-spinner)
+  (reset! current-fetch-request (GET (str "/greenlist") {:handler (fn [data]
+                                                                    (swap! greenlist assoc :data (:data data)))
+                                                         :error-handler error-handler
+                                                         :finally hide-spinner})))
+
+
 (defn fetch-analytics! [parking-zone parking-name date]
   (when @current-fetch-request
     (.abort @current-fetch-request))
@@ -399,7 +432,8 @@
                                                              :style {:font-weight :bold
                                                                      :padding "0.5rem"}} js/appName]
       (when js/subtenants
-        (doall (map (fn [e] [:a.navbar-item {:class (when (= js/window.location.host (val e)) :is-active)
+        (doall (map (fn [e] [:a.navbar-item {:key (val e)
+                                             :class (when (= js/window.location.host (val e)) :is-active)
                                              :href (str "//" (val e)) :style {:font-weight :bold
                                                                               :padding "0.5rem"}} (key e)]) (js->clj js/subtenants))))
       (when (and (= :calendar (:page @session)) (or (:is-admin @conf) (contains? (get-in @conf [:is-admin-in (:zone @session)]) (:parking @session))))
@@ -411,8 +445,6 @@
                                       (swap! session assoc :show-emails false)
                                       (fetch-current-days! (:zone @session) (:parking @session) (:current-date @session) (:show-days-count @session)))}
             [:i.material-icons "supervisor_account"]]])
-      [:span.navbar-item.is-hidden-desktop (when (= (:page @session) :calendar)
-                                             (str "@" (:zone @session) "-" (:parking @session)))]
       (when js/visitor [:span.navbar-item "visitor"])
       (when (:show-spinner @session)
         [:div.lds-ring [:div] [:div] [:div] [:div]])
@@ -429,6 +461,8 @@
        [nav-score-dropdown expanded? (distinct (map first (:zones @conf)))]
        (when-not js/visitor
          [nav-analytics-dropdown expanded? (:zones @conf)])
+       (when (goog.object/get js/user "is-admin")
+         [nav-link expanded? "#/greenlist" "Greenlist" :greenlist])
        (when (goog.object/get js/user "is-admin")
          [nav-link expanded? "#/settings" "Settings" :settings])]]]))
 
@@ -544,6 +578,12 @@
                                  [:input.input {:placeholder "https://hooks.slack.com/services/......"
                                                 :on-change #(swap! settings assoc-in [:settings :zones idx :slack-hook-url] (empty-to-nil (-> % .-target .-value)))
                                                 :value (:slack-hook-url zone)}]]
+                                [:div.field [:label.label "Auto assignment through green list"]
+                                 [:label.checkbox {:style {:margin-right "1rem"}} [:input {:on-change #(swap! settings assoc-in [:settings :zones idx :disable-auto-assignment] (not (get zone :disable-auto-assignment)))
+                                                                                           :type :checkbox
+                                                                                           :checked (get zone :disable-auto-assignment)}]
+                                  " Auto assignment through green list"]]
+
                                 [:div.field [:label.label "Disabled days"]
                                  (doall (for [[day day-name] [[0 " Monday "] [1 " Tuesday "] [2 " Wednesday "] [3 " Thursday "] [4 " Friday "] [5 " Saturday "] [6 " Sunday "]]]
                                           [:label.checkbox {:key day
@@ -563,6 +603,8 @@
                                    [:label.label "Owner"]]
                                   [:div.column.is-one-fourth
                                    [:label.label "Types (Tags)"]]
+                                  [:div.column.is-narrow
+                                   [:label.label "O"]]
                                   [:div.column.is-one-fourth
                                    [:label.label "Actions"]]]
                                  (doall (map-indexed (fn [i slot]
@@ -583,6 +625,10 @@
                                                                         :maxLength 32
                                                                         :on-change #(swap! settings assoc-in [:settings :zones idx :slots i :types] (empty-to-nil (-> % .-target .-value)))
                                                                         :value (:types slot)}]]
+                                                        [:div.column.is-narrow
+                                                         [:input {:type :checkbox
+                                                                  :on-change #(swap! settings assoc-in [:settings :zones idx :slots i :out-by-default] (-> % .-target .-checked))
+                                                                  :checked (:out-by-default slot)}]]
                                                         [:div.column.is-one-fourth
                                                          [:button.button.is-danger {:on-click (fn [] (swap! settings assoc-in [:settings :zones idx :slots] (vec (map second (remove #(= i (first %)) (map-indexed (fn [ix item] [ix item]) (get-in @settings [:settings :zones idx :slots])))))))} "Delete"] " "
                                                          [:button.button.is-success {:on-click (fn [] (swap! settings assoc-in [:settings :zones idx :slots] (vec (map second (let [pn (partition-by #(<= (inc i) (first %)) (map-indexed (fn [ix item] [ix item]) (get-in @settings [:settings :zones idx :slots])))] (concat (first pn) [[0 {:name (uuid/str (random-uuid))}]] (second pn)))))))} "Add after"]]]) (:slots zone)))]]
@@ -754,7 +800,10 @@
                                                      (fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session))
                                                      (reset! active-modal false))} "Set"]
                         [:button.button {:on-click #(reset! active-modal false)} "Close"]]]]]]))
-
+     [:div.level-left
+      [:div.level-item
+       [:div.is-hidden-desktop (when (= (:page @session) :calendar))
+        (str "@" (:zone @session) "-" (:parking @session))]]]
      (when (:show-admin @session)
        [:div.level-left
         [:div.level-item
@@ -1071,22 +1120,22 @@
                                      :href (str "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=" js/openidAzure "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fazure&scope=openid%20User.Read&state=" state)} "O365/Azure"]]])])
        [:article.tile.is-child.notification.is-warning
         [:p.title (str js/companyName " users")]
-        [:p.subtitle "Can login through any linked service or even just with their email. No passwords required"]]]
+        [:p.subtitle "Should always login through O365/Azure button, otherwise they will be logged in as visitors"]]]
       [:div.tile.is-parent
         [:article.tile.is-child.notification.is-primary
          [:p.title "Other users"]
-         [:p.subtitle (str "Visitors, partners,... without " js/companyName " account can use any method to log in. As a visitor you can't see any data, and you can't make reservation requests directly, any of your actions will need to be confirmed by administrator")]]]]
+         [:p.subtitle (str "Visitors, partners,... without Pricefx account can use any method to log in. As a visitor you can't see any data, and you can't make reservation requests directly, any of your actions will need to be confirmed by administrator")]]]]
      [:div.tile.is-parent
        [:article.tile.is-child.notification.is-danger
         [:p.title "How to use it"]
         [:p.subtitle "Just log in, select a parking or desk area from calendar menu, find your desired date and click on the box with date. This will make a reservation request. A reservation request will turn into reservation by a smart machine learning algorithm the day before the reservation target or can be done anytime by app admin (your office angel). Check the Rules link in footer of this page if in doubt."]]]]
     [:div.tile.is-parent.is-vertical
      [:article.tile.is-child.notification.is-success
-      [:p.title "If login does not work"]
-      [:p.subtitle "Make sure you clicked on the activation link in the email you received"]]
+      [:p.title "If you are still in doubt"]
+      [:p.subtitle "Feel free to ask on MS Teams or ask your office angel"]]
      [:article.tile.is-child.notification.is-info
       [:p.title "This app"]
-      [:p.subtitle "Helps not only with parkings and desk sharing. It can also help you with spreading info to your team"]]]]
+      [:p.subtitle "Helps not only with parkings and desk sharing. You'll find there also all the events happening in the office"]]]]
    [:footer.footer
     [:div.content.has-text-centered
      [:p
@@ -1095,6 +1144,80 @@
 
 (defn calendar-page []
   (parking (:zone @session) (:parking @session)))
+
+(defn greenlist-page []
+  [:div.column-padding
+   [:div.field.is-grouped.is-grouped-centered
+    [:div.modal {:class (when (:show-confirm @session) :is-active)}
+     [:div.modal-background]
+     [:div.modal-card
+      [:header.modal-card-head
+       [:p.modal-card-title (get-in @session [:show-confirm :header] "Confirmation")]
+       [:button.delete {:on-click #(swap! session assoc :show-confirm nil)} {:aria-label "close"}]]
+      [:section.modal-card-body
+       (:text (:show-confirm @session))]
+      [:footer.modal-card-foot
+       [:button.button.is-success {:on-click (fn [_]
+                                               ((:fn (:show-confirm @session)))
+                                               (swap! session assoc :show-confirm nil))} "Okay"]
+       [:button.button {:on-click #(swap! session assoc :show-confirm nil)} "Close"]]]]
+    (r/with-let [email (r/atom nil)
+                 valid_from (r/atom nil)
+                 valid_to(r/atom nil)
+                 description (r/atom nil)]
+                [:div.modal {:class (when (:add-user-to-greenlist @session) :is-active)}
+                 [:div.modal-background]
+                 [:div.modal-card
+                  [:header.modal-card-head
+                   [:p.modal-card-title "Add user to greenlist"]
+                   [:button.delete {:aria-label "close"
+                                    :on-click #(swap! session assoc :add-user-to-greenlist nil)}]]
+                  [:section.modal-card-body
+                   [:div.field
+                    [:div.control
+                     [input-element "email" "email" "text" "Email" 128 email]]]
+                   [:div.field
+                    [:div.control
+                     [input-element "valid_from" "valid_from" "date" "" 128 valid_from]]]
+                   [:div.field
+                    [:div.control
+                     [input-element "valid_to" "valid_to" "date" "" 128 valid_to]]]
+                   [:div.field
+                    [:div.control
+                     [textarea-element "description" "description" "Description" 255 description]]]]
+                  [:footer.modal-card-foot
+                   [:button.button {:class    (if (empty? @email) :is-danger :is-success)
+                                    :on-click (fn [_]
+                                                (add-to-greenlist! @email @valid_from @valid_to @description #(fetch-greenlist!))
+                                                (reset! email nil)
+                                                (swap! session assoc :add-user-to-greenlist nil))} "Add"]
+                   [:button.button {:on-click #(swap! session assoc :add-user-to-greenlist nil)} "Close"]]]])
+    [:button.button {:class :is-success
+                     :on-click (fn [_]
+                                 (swap! session assoc :add-user-to-greenlist {:data :new}))} "Add"]]
+   [:section.calendar-menu>div.container>div.content
+    [:table.table
+     [:thead
+      [:tr
+       [:th "Is Valid?"]
+       [:th "Email"]
+       [:th "Valid from"]
+       [:th "Valid to"]
+       [:th "Description"]
+       [:th "Delete"]]]
+     [:tbody
+        (doall (map (fn [item]
+                        [:tr {:key (:id item)}
+                          [:td [:button.button {:class (if (and (not (t/before? (t/today) (f/parse-local-date lt/iso-local-date (:valid_from item)))) (not (t/after? (t/today) (f/parse-local-date lt/iso-local-date (:valid_to item)))))
+                                                         "is-success"
+                                                         "is-danger")} "Today?"]]
+                          [:td (:email item)]
+                          [:td (:valid_from item)]
+                          [:td (:valid_to item)]
+                          [:td (:description item)]
+                          [:td [:button.button {:class :is-danger
+                                                :on-click (fn [_]
+                                                            (confirm "Delete record from greenlist" "Do you really want to delete the record?" (fn [] (delete-from-greenlist! (:id item) #(fetch-greenlist!)))))} "Delete"]]]) (:data @greenlist)))]]]])
 
 (defn score-page []
   [:div.column-padding
@@ -1260,6 +1383,7 @@
 (def pages
   {:home #'home-page
    :calendar #'calendar-page
+   :greenlist #'greenlist-page
    :rules #'rules-page
    :score #'score-page
    :privacy #'privacy-page
@@ -1278,6 +1402,7 @@
   (reitit/router
     [["/" :home]
      ["/calendar/:zone/:parking" :calendar]
+     ["/greenlist" :greenlist]
      ["/analytics/:zone/:parking" :analytics]
      ["/score/:zone" :score]
      ["/rules" :rules]
@@ -1316,7 +1441,7 @@
   (doto (History.)
     (events/listen
       HistoryEventType/NAVIGATE
-      (fn [event]
+      (fn [^js event]
         (swap! session assoc :types nil)
         (swap! session assoc :page (or (if js/user (match-route (.-token event)) (or (#{:home :privacy :new :terms} (match-route (.-token event))) :home)) :home))
         (if js/user
@@ -1330,7 +1455,9 @@
                 (swap! score assoc :date (f/unparse-local-date (:year-month f/formatters) (t/today)) (js/decodeURIComponent parking)))
               (when (and (= :settings (:page @session)) (goog.object/get js/user "is-admin"))
                 (fetch-timezones!)
-                (fetch-settings!))))
+                (fetch-settings!))
+              (when (and (= :greenlist (:page @session)) (goog.object/get js/user "is-admin"))
+                (fetch-greenlist!))))
           (do
            (swap! session assoc :zone nil)
            (swap! session assoc :parking nil)

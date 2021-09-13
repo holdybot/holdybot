@@ -54,6 +54,16 @@ ORDER BY status, id
 SELECT * FROM parking
 WHERE tenant_id = :tenant_id and parking_zone = :parking_zone and parking_name = :parking_name and parking_day = :parking_day and status = 'pending'
 
+-- :name get-pending-parkings-by-day-filtered-by-greenlist :? :*
+-- :doc retrieves all pending parking records for given name and day filtered by greenlist
+SELECT p.* FROM parking p INNER JOIN greenlist g on p.email = g.email and p.tenant_id = g.tenant_id
+WHERE p.tenant_id = :tenant_id and p.parking_zone = :parking_zone and p.parking_name = :parking_name and p.parking_day = :parking_day and p.status = 'pending' and g.valid_to >= :parking_day and g.valid_from <= :parking_day
+
+-- :name get-valid-greenlist-records :? :*
+-- :doc retrieves valid records for user on a greenlist
+SELECT * FROM greenlist
+WHERE tenant_id = :tenant_id and valid_to >= :parking_day and valid_from <= :parking_day and email = :email
+
 -- :name get-inactive-parkings-by-day :? :*
 -- :doc retrieves all inactive parking records for given name and day
 SELECT * FROM parking
@@ -217,3 +227,26 @@ select * from email_token where host = :host and email = :email and token = :tok
 
 -- :name delete-email-token! :! :1
 delete from email_token where created < TIMESTAMP 'yesterday'
+
+-- :name set-out-by-default! :! :1
+INSERT INTO parking AS S
+(tenant_id, email, parking_day, parking_zone, parking_name, user_name, status, on_behalf_of)
+VALUES (:tenant_id, :email, :parking_day, :parking_zone, :parking_name, :user_name, 'out', true)
+ON CONFLICT (tenant_id, parking_zone, parking_name, parking_day, email)
+    DO NOTHING
+
+-- :name delete-old-outs! :! :n
+DELETE FROM parking
+WHERE tenant_id = :tenant_id and parking_day < :parking_day and parking_zone = :parking_zone and parking_name = :parking_name and status = 'out' and points is null and on_behalf_of = true
+
+-- :name get-greenlist :? :*
+SELECT id, email, to_char(valid_from,'YYYY-MM-DD') as valid_from, to_char(valid_to,'YYYY-MM-DD') as valid_to, created_by, description
+FROM greenlist
+WHERE tenant_id = :tenant_id ORDER BY id desc
+
+-- :name add-greenlist-record! :! :1
+INSERT INTO greenlist (tenant_id, valid_from, valid_to, email, created_by, description)
+VALUES (:tenant_id, to_date(:valid_from, 'YYYY-MM-DD'), to_date(:valid_to, 'YYYY-MM-DD'), :email, :created_by, :description)
+
+-- :name delete-greenlist-record! :! :1
+DELETE FROM greenlist WHERE tenant_id = :tenant_id and id = :id
