@@ -445,6 +445,8 @@
                                       (swap! session assoc :show-emails false)
                                       (fetch-current-days! (:zone @session) (:parking @session) (:current-date @session) (:show-days-count @session)))}
             [:i.material-icons "supervisor_account"]]])
+      [:span.navbar-item.is-hidden-desktop (when (= (:page @session) :calendar)
+                                             (str "@" (:zone @session) "-" (:parking @session)))]
       (when js/visitor [:span.navbar-item "visitor"])
       (when (:show-spinner @session)
         [:div.lds-ring [:div] [:div] [:div] [:div]])
@@ -800,10 +802,7 @@
                                                      (fetch-current-days! parking-zone parking-name (:current-date @session) (:show-days-count @session))
                                                      (reset! active-modal false))} "Set"]
                         [:button.button {:on-click #(reset! active-modal false)} "Close"]]]]]]))
-     [:div.level-left
-      [:div.level-item
-       [:div.is-hidden-desktop (when (= (:page @session) :calendar))
-        (str "@" (:zone @session) "-" (:parking @session))]]]
+
      (when (:show-admin @session)
        [:div.level-left
         [:div.level-item
@@ -1115,27 +1114,27 @@
               [:a.button.is-primary {:style (when (empty? js/openidGoogle) {:display :none})
                                      :href (str "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=" js/openidGoogle "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fgoogle&scope=openid%20email%20profile&state=" state)} "Google"] " "
               [:a.button.is-primary {:style (when (empty? js/openidFb) {:display :none})
-                                     :href (str "https://www.facebook.com/v4.0/dialog/oauth?response_type=code&client_id=" js/openidFb "&redirect_uri=" redirect-uri "%2Foauth-callback%2Ffacebook&scope=email&state=" state)} "Facebook"] " "
+                                     :href (str "https://www.facebook.com/v12.0/dialog/oauth?response_type=code&client_id=" js/openidFb "&redirect_uri=" redirect-uri "%2Foauth-callback%2Ffacebook&scope=email&state=" state)} "Facebook"] " "
               [:a.button.is-primary {:style (when (empty? js/openidAzure) {:display :none})
                                      :href (str "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=code&client_id=" js/openidAzure "&redirect_uri=" redirect-uri "%2Foauth-callback%2Fazure&scope=openid%20User.Read&state=" state)} "O365/Azure"]]])])
        [:article.tile.is-child.notification.is-warning
         [:p.title (str js/companyName " users")]
-        [:p.subtitle "Should always login through O365/Azure button, otherwise they will be logged in as visitors"]]]
+        [:p.subtitle "Can login through any linked service or even just with their email. No passwords required"]]]
       [:div.tile.is-parent
         [:article.tile.is-child.notification.is-primary
          [:p.title "Other users"]
-         [:p.subtitle (str "Visitors, partners,... without Pricefx account can use any method to log in. As a visitor you can't see any data, and you can't make reservation requests directly, any of your actions will need to be confirmed by administrator")]]]]
+         [:p.subtitle (str "Visitors, partners,... without " js/companyName " account can use any method to log in. As a visitor you can't see any data, and you can't make reservation requests directly, any of your actions will need to be confirmed by administrator")]]]]
      [:div.tile.is-parent
        [:article.tile.is-child.notification.is-danger
         [:p.title "How to use it"]
         [:p.subtitle "Just log in, select a parking or desk area from calendar menu, find your desired date and click on the box with date. This will make a reservation request. A reservation request will turn into reservation by a smart machine learning algorithm the day before the reservation target or can be done anytime by app admin (your office angel). Check the Rules link in footer of this page if in doubt."]]]]
     [:div.tile.is-parent.is-vertical
      [:article.tile.is-child.notification.is-success
-      [:p.title "If you are still in doubt"]
-      [:p.subtitle "Feel free to ask on MS Teams or ask your office angel"]]
+      [:p.title "If login does not work"]
+      [:p.subtitle "Make sure you clicked on the activation link in the email you received"]]
      [:article.tile.is-child.notification.is-info
       [:p.title "This app"]
-      [:p.subtitle "Helps not only with parkings and desk sharing. You'll find there also all the events happening in the office"]]]]
+      [:p.subtitle "Helps not only with parkings and desk sharing. It can also help you with spreading info to your team"]]]]
    [:footer.footer
     [:div.content.has-text-centered
      [:p
@@ -1308,7 +1307,12 @@
          [:span.button {:on-click #(change-date-to-today-analytics)} "This month"]
          [:span.button {:on-click #(change-date-analytics t/plus 1)} [:i.material-icons "chevron_right"]]]]]
       [:div.level-right
-       [:span "Since " (f/unparse-local-date lt/iso-local-date (:current-date @analytics))]]
+       [:span "Since " (f/unparse-local-date lt/iso-local-date (:current-date @analytics))]
+       [:button.button
+         {:on-click #(js/window.open (js/encodeURI (str "data:text/tsv;charset=utf-8,parking_day\tactive\tout\tpending\tblocked\tinactive\n"
+                                                        (clojure.string/join (for [d (:data @analytics)]
+                                                                               (str (:parking_day d) "\t" (:actives d) "\t" (:outs d) "\t" (:pendings d) "\t" (:blockeds d) "\t" (:inactives d) "\n"))))))}
+         "Table"]]
       #_[:div.level-right
          [:div.buttons.has-addons
           [:span.button {:on-click #(js/window.open (str "/excel/" (:zone @session) "/" (:parking @session) "/" (f/unparse-local-date lt/iso-local-date (or (:current-date @analytics) (t/first-day-of-the-month- (t/now))))) "_blank")} [:i.material-icons "save_alt"]]]]]

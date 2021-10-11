@@ -67,15 +67,15 @@
 (defn has-own-space? [email zone]
   (some #(= email (:owner %)) (get-in zone [:slots])))
 
-(def facebookv4 (FacebookApi/customVersion "6.0"))
+(def facebook-version (FacebookApi/customVersion "12.0"))
 (defn- get-user-info-facebook [code domain]
   (let [builder (doto (new ServiceBuilder (get-in env [:open-id-connect :facebook :api-key]))
                   (.apiSecret (get-in env [:open-id-connect :facebook :api-secret]))
                   (.defaultScope "email")
                   (.callback (str domain "/oauth-callback/facebook")))
-        ^OAuth20Service service (.build builder facebookv4)
+        ^OAuth20Service service (.build builder facebook-version)
         ^OAuth2AccessToken token (.getAccessToken service code)
-        request (new OAuthRequest Verb/GET "https://graph.facebook.com/v6.0/me?fields=name,email")]
+        request (new OAuthRequest Verb/GET (str "https://graph.facebook.com/v" facebook-version "/me?fields=name,email"))]
     (.signRequest service token request)
     (let [^Response resp (.execute service request)
           user (json/read-str (.getBody resp))

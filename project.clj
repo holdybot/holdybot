@@ -8,12 +8,12 @@
                  [clj-http "3.10.0"]
                  [cljs-ajax "0.8.0"]
                  [clojure.java-time "0.3.2"]
-                 [com.cognitect/transit-clj "0.8.313"]
+                 [com.cognitect/transit-clj "1.0.324"]
                  [com.draines/postal "2.0.3"]
                  [com.github.scribejava/scribejava-apis "6.7.0"]
                  [com.github.scribejava/scribejava-core "6.7.0"]
                  [com.github.scribejava/scribejava-httpclient-apache "6.7.0"]
-                 [com.google.javascript/closure-compiler-unshaded "v20200406" :scope "provided"]
+                 [com.google.javascript/closure-compiler-unshaded "v20210505" :scope "provided"]
                  [com.google.protobuf/protobuf-java "3.11.1"]
                  [compact-uuids "0.2.0"]
                  [conman "0.8.4"]
@@ -30,27 +30,27 @@
                  [metosin/ring-http-response "0.9.1"]
                  [mount "0.1.16"]
                  [nrepl "0.6.0"]
-                 [org.clojure/clojure "1.10.1"]
-                 [org.clojure/clojurescript "1.10.741" :scope "provided"
+                 [org.clojure/clojure "1.10.3"]
+                 [org.clojure/clojurescript "1.10.866" :scope "provided"
                   :exclusions [com.google.javascript/closure-compiler-unshaded
                                org.clojure/google-closure-library
                                org.clojure/google-closure-library-third-party]]
-                 [org.clojure/data.json "0.2.6"]
-                 [org.clojure/google-closure-library "0.0-20191016-6ae1f72f" :scope "provided"]
-                 [org.clojure/google-closure-library-third-party "0.0-20191016-6ae1f72f" :scope "provided"]
-                 [org.clojure/tools.cli "0.4.2"]
+                 [org.clojure/data.json "2.4.0"]
+                 [org.clojure/google-closure-library "0.0-20201211-3e6c510d" :scope "provided"]
+                 [org.clojure/google-closure-library-third-party "0.0-20201211-3e6c510d" :scope "provided"]
+                 [org.clojure/tools.cli "1.0.206"]
                  [org.clojure/tools.logging "0.4.1"]
-                 [org.postgresql/postgresql "42.2.9"]
+                 [org.postgresql/postgresql "42.2.24"]
                  [org.webjars.npm/bulma "0.7.4"]
                  [org.webjars.npm/material-icons "0.3.0"]
                  [org.webjars/webjars-locator "0.36"]
                  [org.webjars/webjars-locator-jboss-vfs "0.1.0"]
-                 [reagent "0.10.0"]
+                 [reagent "1.1.0"]
                  [ring-webjars "0.2.0"]
-                 [ring/ring-core "1.7.1"]
+                 [ring/ring-core "1.9.4"]
                  [ring/ring-defaults "0.3.2"]
                  [selmer "1.12.12"]
-                 [thheller/shadow-cljs "2.11.5" :scope "provided"]]
+                 [thheller/shadow-cljs "2.15.12" :scope "provided"]]
 
   :min-lein-version "2.0.0"
   
@@ -78,9 +78,9 @@
      :output-to "target/test/test.js"
      :autorun true}}}
   
-  :npm-deps [[shadow-cljs "2.11.5"]
-             [react "16.13.0"]
-             [react-dom "16.13.0"]
+  :npm-deps [[shadow-cljs "2.15.12"]
+             [react "17.0.2"]
+             [react-dom "17.0.2"]
              [bulma-toast "1.5.1"]
              ["@hcaptcha/react-hcaptcha" "0.1.8"]]
 
@@ -97,12 +97,12 @@
    :test          [:project/dev :project/test :profiles/test]
 
    :project/dev  {:jvm-opts ["-Dconf=dev-config.edn"]
-                  :dependencies [[binaryage/devtools "0.9.11"]
+                  :dependencies [[binaryage/devtools "1.0.3"]
                                  [cider/piggieback "0.4.1"]
                                  [expound "0.8.4"]
                                  [pjstadig/humane-test-output "0.9.0"]
                                  [prone "1.6.3"]
-                                 [ring/ring-devel "1.7.1"]
+                                 [ring/ring-devel "1.9.4"]
                                  [ring/ring-mock "0.4.0"]]
                   :plugins      [[com.jakemccrary/lein-test-refresh "0.24.1"]]
                   
