@@ -680,7 +680,7 @@
    ["/create-new" {:get {:parameters {:query {:token string? :name string? :email string?}}}
                    :handler (fn [req]
                               (let [token (get-in req [:parameters :query :token])
-                                    email (get-in req [:parameters :query :email])
+                                    email (clojure.string/lower-case (get-in req [:parameters :query :email]))
                                     name (get-in req [:parameters :query :name])
                                          response (client/post "https://hcaptcha.com/siteverify" {:query-params {:secret (get-in env [:hcaptcha :secretkey])
                                                                                                                  :response token}
@@ -699,7 +699,7 @@
 
    ["/email-login" {:get {:handler (fn [req]
                                      (let [token (get-in req [:params :token])
-                                           email (get-in req [:params :email])
+                                           email (clojure.string/lower-case (get-in req [:params :email]))
                                            user-name (get-in req [:params :user-name])
                                            raw-session-state (get-in req [:params :state])
                                            session-state (if raw-session-state (jwt/unsign raw-session-state parky.middleware/jwt-secret) nil)
@@ -717,7 +717,7 @@
    ["/create-login-token" {:get {:parameters {:query {:state string? :token string? :email string? :user-name string?}}}
                            :handler (fn [req]
                                       (let [token (get-in req [:parameters :query :token])
-                                            email (get-in req [:parameters :query :email])
+                                            email (clojure.string/lower-case (get-in req [:parameters :query :email]))
                                             user-name (get-in req [:parameters :query :user-name])
                                             raw-session-state (get-in req [:parameters :query :state])
                                                               session-state (if raw-session-state (jwt/unsign raw-session-state parky.middleware/jwt-secret) nil)

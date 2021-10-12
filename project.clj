@@ -82,7 +82,7 @@
              [react "17.0.2"]
              [react-dom "17.0.2"]
              [bulma-toast "1.5.1"]
-             ["@hcaptcha/react-hcaptcha" "0.1.8"]]
+             ["@hcaptcha/react-hcaptcha" "0.3.7"]]
 
   :profiles
   {:uberjar {:omit-source true
